@@ -1,68 +1,123 @@
-💰 SheetSync - Serverless Expense Tracker
+# 💰 SheetSync - Serverless Expense Tracker
 
-A lightweight, offline-capable Progressive Web App (PWA) that uses Google Sheets as a database. Built for the budget-conscious developer who wants data privacy and zero hosting costs.
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Status](https://img.shields.io/badge/status-active-green.svg)
+![PWA](https://img.shields.io/badge/PWA-Ready-orange.svg)
 
-Live Demo: [Link to your GitHub Page]
+**SheetSync** is a lightweight, privacy-focused Progressive Web App (PWA) that uses **Google Sheets** as your personal database. It enables you to track income and expenses without relying on third-party servers, ensuring your financial data remains yours.
 
-✨ Features
+## ✨ Features
 
-Zero Cost: Hosted on GitHub Pages, backend on Google Apps Script.
+- **🛡️ Privacy First**: Your data lives in your own Google Sheet. No 3rd party databases.
+- **💸 Zero Cost**: Hosted for free on GitHub Pages (Frontend) and Google Apps Script (Backend).
+- **📶 Offline Capable**: Works offline and syncs automatically when the connection is restored.
+- **🔄 Auto-Sync**: Updates in real-time when switching devices or tabs.
+- **📱 Mobile Ready**: installable as a native-like app on iOS and Android.
+- **📊 Instant Insights**: Real-time calculation of Income, Expense, and Balance.
 
-Privacy First: Data lives in your personal Google Sheet, not a third-party server.
+## 🛠️ Tech Stack
 
-Offline Mode: PWA capabilities allow it to load without internet (syncs when back online).
+- **Frontend**: HTML5, Vanilla JavaScript, Tailwind CSS (via CDN).
+- **Backend API**: Google Apps Script (GAS).
+- **Database**: Google Sheets.
 
-Mobile Native Feel: Installable on Android/iOS via "Add to Home Screen".
+---
 
-Visual Dashboard: Real-time calculation of Income, Expense, and Balance.
+## 🚀 Deployment Guide (Create Your Own)
 
-🛠️ Tech Stack
+Follow these simple steps to deploy your own instance of SheetSync.
 
-Frontend: HTML5, Tailwind CSS (CDN), Vanilla JavaScript.
+### 1. Database Setup (Google Sheets)
 
-Backend: Google Apps Script (REST API).
+1. Create a new [Google Sheet](https://sheets.new).
+2. Rename the tab (sheet) to `Sheet1` (Case sensitive).
+3. In **Row 1**, add these exact headers:
+   ```
+   id | date | type | category | amount | note
+   ```
 
-Database: Google Sheets.
+### 2. Backend API (Google Apps Script)
 
-🚀 How to Deploy (Your Own Version)
+1. In your Google Sheet, go to **Extensions > Apps Script**.
+2. Copy the code from `backend.gs` (create this file if you haven't, content below).
+3. Click **Deploy > New Deployment**.
+4. Select **Web App** as the type.
+5. **Important**: Set "Who has access" to **"Anyone"**. (This allows your app to write to the sheet).
+6. Click **Deploy** and copy the **Web App URL**.
 
-1. Database Setup
+<details>
+<summary>Click to view <code>backend.gs</code> code</summary>
 
-Create a new Google Sheet.
+```javascript
+// backend.gs
+function doGet(e) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet1");
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const rows = data.slice(1);
 
-Rename the tab (sheet) to Sheet1.
+  const formatted = rows.map((r) => {
+    let obj = {};
+    headers.forEach((h, i) => (obj[h] = r[i]));
+    return obj;
+  });
 
-In Row 1, add these exact headers:
-id | date | type | category | amount | note
+  return ContentService.createTextOutput(
+    JSON.stringify({ status: "success", data: formatted })
+  ).setMimeType(ContentService.MimeType.JSON);
+}
 
-2. Backend API
+function doPost(e) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet1");
+  const json = JSON.parse(e.postData.contents);
 
-Open your Sheet > Extensions > Apps Script.
+  if (json.action === "add") {
+    const d = json.data;
+    sheet.appendRow([d.id, d.date, d.type, d.category, d.amount, d.note]);
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "success" })
+    );
+  }
+}
+```
 
-Copy the code from backend.gs (provided in this repo's docs or asking the author).
+</details>
 
-Click Deploy > New Deployment > Select Web App.
+### 3. Frontend Setup
 
-Set Who has access to "Anyone" (Required for the app to talk to Google).
+1. **Fork** this repository.
+2. Go to `Settings > Pages` in your repository.
+3. Enable GitHub Pages from the `main` branch.
+4. Open your live site URL.
 
-Copy the generated Web App URL.
+### 4. Connect
 
-3. Frontend Setup
+1. Open your deployed App.
+2. Click the **Settings (⚙️)** icon.
+3. Paste your **Web App URL** and click **Connect**.
 
-Fork this repository.
+---
 
-Enable GitHub Pages in your repo settings (Source: main branch).
+## 📲 Installing on Mobile
 
-Open your live site link.
+### Android (Chrome)
 
-Click the Settings (⚙️) icon.
+1. Open the app in Chrome.
+2. Tap the **three dots** menu.
+3. Select **"Add to Home Screen"** or **"Install App"**.
 
-Paste your Web App URL and click Connect.
+### iOS (Safari)
 
-📱 Screenshots
+1. Open the app in Safari.
+2. Tap the **Share** button (Square with arrow).
+3. Scroll down and tap **"Add to Home Screen"**.
 
-(Add screenshots of your app running on the Galaxy M35 here)
+---
 
-📄 License
+## 🤝 Contributing
 
-MIT License - Feel free to fork and modify!
+Contributions are welcome! Feel free to open issues or submit pull requests.
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).

@@ -316,6 +316,22 @@
           fetchData(); // Sync in background
         }
 
+        // Auto-refresh when app comes to foreground
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") {
+            console.log("App visible, refreshing...");
+            fetchData();
+          }
+        });
+
+        // Background polling every 60 seconds
+        setInterval(() => {
+          if (document.visibilityState === "visible") {
+            console.log("Auto-refreshing...");
+            fetchData();
+          }
+        }, 60000);
+
         // Register Service Worker
         if ("serviceWorker" in navigator) {
           navigator.serviceWorker
