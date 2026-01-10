@@ -201,6 +201,38 @@ function doPost(e) {
     ).setMimeType(ContentService.MimeType.JSON);
   }
 
+  // 6. "delete": Delete a row by ID
+  if (action === "delete") {
+    const sheetName = json.sheet;
+    const id = json.id;
+    const sheet = ss.getSheetByName(sheetName);
+
+    if (!sheet)
+      return jsonResponse({ status: "error", message: "Sheet not found" });
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIdx = headers.findIndex((h) => h.toString().toLowerCase() === "id");
+
+    if (idIdx === -1)
+      return jsonResponse({ status: "error", message: "No ID col" });
+
+    // Find row
+    let rowIndex = -1;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idIdx]) === String(id)) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1)
+      return jsonResponse({ status: "error", message: "ID not found" });
+
+    sheet.deleteRow(rowIndex);
+    return jsonResponse({ status: "success" });
+  }
+
   return ContentService.createTextOutput(
     JSON.stringify({ status: "error", message: "Invalid action" })
   ).setMimeType(ContentService.MimeType.JSON);
