@@ -243,11 +243,11 @@
     <!-- JAVASCRIPT LOGIC -->
     <script>
       // --- STATE ---
-      let APP_ innovative = {
+      let APP_ = {
         sheets: [], // List of available sheets {name, headers[]}
         currentSheet: null, // The active sheet object
         data: [], // Data for current sheet
-        apiUrl: localStorage.getItem("sheetSync_url") || ""
+        apiUrl: localStorage.getItem("sheetSync_url") || "",
       };
 
       // --- INIT ---
@@ -260,7 +260,8 @@
 
         // Polling
         setInterval(() => {
-             if(document.visibilityState === 'visible' && APP_.currentSheet) loadData(APP_.currentSheet.name);
+          if (document.visibilityState === "visible" && APP_.currentSheet)
+            loadData(APP_.currentSheet.name);
         }, 60000);
       });
 
@@ -273,29 +274,39 @@
         document.getElementById("app-title").innerText = "SheetSync OS";
 
         const container = document.getElementById("main-container");
-        container.innerHTML = '<div class="grid grid-cols-2 gap-4 pb-20" id="app-grid"></div>';
+        container.innerHTML =
+          '<div class="grid grid-cols-2 gap-4 pb-20" id="app-grid"></div>';
 
         const grid = document.getElementById("app-grid");
 
         // Render App Cards
-        APP_.sheets.forEach(sheet => {
-           let icon = "fa-table";
-           let color = "bg-gray-800";
+        APP_.sheets.forEach((sheet) => {
+          let icon = "fa-table";
+          let color = "bg-gray-800";
 
-           // Simple heuristics for icons/colors
-           const lower = sheet.name.toLowerCase();
-           if(lower.includes("financ") || lower.includes("money")) { icon = "fa-wallet"; color = "bg-blue-900/50 border-blue-800"; }
-           else if(lower.includes("habit")) { icon = "fa-check-circle"; color = "bg-green-900/50 border-green-800"; }
-           else if(lower.includes("journal") || lower.includes("diary")) { icon = "fa-book"; color = "bg-purple-900/50 border-purple-800"; }
-           else if(lower.includes("fitness") || lower.includes("gym")) { icon = "fa-dumbbell"; color = "bg-orange-900/50 border-orange-800"; }
+          // Simple heuristics for icons/colors
+          const lower = sheet.name.toLowerCase();
+          if (lower.includes("financ") || lower.includes("money")) {
+            icon = "fa-wallet";
+            color = "bg-blue-900/50 border-blue-800";
+          } else if (lower.includes("habit")) {
+            icon = "fa-check-circle";
+            color = "bg-green-900/50 border-green-800";
+          } else if (lower.includes("journal") || lower.includes("diary")) {
+            icon = "fa-book";
+            color = "bg-purple-900/50 border-purple-800";
+          } else if (lower.includes("fitness") || lower.includes("gym")) {
+            icon = "fa-dumbbell";
+            color = "bg-orange-900/50 border-orange-800";
+          }
 
-           const card = `
+          const card = `
              <div onclick="openTracker('${sheet.name}')" class="${color} border border-gray-700 p-4 rounded-2xl flex flex-col items-center justify-center gap-3 aspect-square active:scale-95 transition cursor-pointer shadow-lg hover:shadow-xl hover:border-gray-500 group">
                 <i class="fas ${icon} text-3xl text-gray-200 group-hover:text-white transition"></i>
                 <span class="font-semibold text-sm text-center text-gray-300 group-hover:text-white">${sheet.name}</span>
              </div>
            `;
-           grid.insertAdjacentHTML('beforeend', card);
+          grid.insertAdjacentHTML("beforeend", card);
         });
 
         // "Add New" Card
@@ -305,7 +316,7 @@
                 <span class="font-semibold text-sm text-center text-gray-500">New Tracker</span>
            </div>
         `;
-        grid.insertAdjacentHTML('beforeend', addCard);
+        grid.insertAdjacentHTML("beforeend", addCard);
 
         // Hide FAB on dashboard (using card instead)
         document.getElementById("fab").classList.add("hidden");
@@ -313,8 +324,8 @@
 
       /* 2. TRACKER VIEW */
       async function openTracker(sheetName) {
-        const sheet = APP_.sheets.find(s => s.name === sheetName);
-        if(!sheet) return;
+        const sheet = APP_.sheets.find((s) => s.name === sheetName);
+        if (!sheet) return;
 
         APP_.currentSheet = sheet;
 
@@ -340,72 +351,95 @@
         container.innerHTML = "";
 
         // Special Case: Finance View (if headers match typical finance structure)
-        const headers = APP_.currentSheet.headers.map(h => h.toLowerCase());
-        const isFinance = headers.includes("amount") && (headers.includes("type") || headers.includes("category"));
+        const headers = APP_.currentSheet.headers.map((h) => h.toLowerCase());
+        const isFinance =
+          headers.includes("amount") &&
+          (headers.includes("type") || headers.includes("category"));
 
         if (APP_.data.length === 0) {
-            container.innerHTML = '<div class="text-center py-10 text-gray-500">No entries yet.</div>';
-            return;
+          container.innerHTML =
+            '<div class="text-center py-10 text-gray-500">No entries yet.</div>';
+          return;
         }
 
         // --- RENDER LOGIC ---
-        APP_.data.forEach(item => {
-            let html = "";
+        APP_.data.forEach((item) => {
+          let html = "";
 
-            if (isFinance) {
-                 // Specialized Finance Card
-                 const isExp = (item.type || "").toLowerCase() === "expense";
-                 const color = isExp ? "text-red-400" : "text-green-400";
-                 const sign = isExp ? "-" : "+";
+          if (isFinance) {
+            // Specialized Finance Card
+            const isExp = (item.type || "").toLowerCase() === "expense";
+            const color = isExp ? "text-red-400" : "text-green-400";
+            const sign = isExp ? "-" : "+";
 
-                 html = `
+            html = `
                     <div class="bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-sm flex items-center justify-between">
                         <div>
-                             <p class="font-bold text-gray-200">${item.category || "Unknown"}</p>
-                             <p class="text-xs text-gray-500">${item.date || ""} ${item.note ? "• " + item.note : ""}</p>
+                             <p class="font-bold text-gray-200">${
+                               item.category || "Unknown"
+                             }</p>
+                             <p class="text-xs text-gray-500">${
+                               item.date || ""
+                             } ${item.note ? "• " + item.note : ""}</p>
                         </div>
-                        <p class="font-bold ${color}">${sign}₹${Number(item.amount).toLocaleString()}</p>
+                        <p class="font-bold ${color}">${sign}₹${Number(
+              item.amount
+            ).toLocaleString()}</p>
                     </div>
                  `;
-            } else {
-                 // Generic List Card
-                 // Find the "primary" field (first non-date field usually) for title, second for subtitle
-                 const keys = Object.keys(item);
-                 const h = APP_.currentSheet.headers;
-                 const titleKey = h[0]; // First column
-                 const subKey = h[1];   // Second column
-                 const valKey = h.length > 2 ? h[2] : null;
+          } else {
+            // Generic List Card
+            // Find the "primary" field (first non-date field usually) for title, second for subtitle
+            const keys = Object.keys(item);
+            const h = APP_.currentSheet.headers;
+            const titleKey = h[0]; // First column
+            const subKey = h[1]; // Second column
+            const valKey = h.length > 2 ? h[2] : null;
 
-                 html = `
+            html = `
                     <div class="bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-sm flex items-center justify-between">
                         <div>
-                             <p class="font-bold text-gray-200">${item[titleKey] || "-"}</p>
-                             <p class="text-xs text-gray-500">${item[subKey] || ""}</p>
+                             <p class="font-bold text-gray-200">${
+                               item[titleKey] || "-"
+                             }</p>
+                             <p class="text-xs text-gray-500">${
+                               item[subKey] || ""
+                             }</p>
                         </div>
-                        ${valKey ? `<p class="font-mono text-sm text-gray-300 bg-gray-700 px-2 py-1 rounded">${item[valKey]}</p>` : ""}
+                        ${
+                          valKey
+                            ? `<p class="font-mono text-sm text-gray-300 bg-gray-700 px-2 py-1 rounded">${item[valKey]}</p>`
+                            : ""
+                        }
                     </div>
                  `;
-            }
-            container.insertAdjacentHTML('beforeend', html);
+          }
+          container.insertAdjacentHTML("beforeend", html);
         });
 
         // Stats for finance
-        if(isFinance) {
-            const income = APP_.data.filter(i => (i.type||"").toLowerCase() === "income").reduce((s, i) => s + Number(i.amount), 0);
-            const expense = APP_.data.filter(i => (i.type||"").toLowerCase() === "expense").reduce((s, i) => s + Number(i.amount), 0);
+        if (isFinance) {
+          const income = APP_.data
+            .filter((i) => (i.type || "").toLowerCase() === "income")
+            .reduce((s, i) => s + Number(i.amount), 0);
+          const expense = APP_.data
+            .filter((i) => (i.type || "").toLowerCase() === "expense")
+            .reduce((s, i) => s + Number(i.amount), 0);
 
-            document.getElementById("tracker-stats").innerHTML = `
+          document.getElementById("tracker-stats").innerHTML = `
                <div class="grid grid-cols-2 gap-3 mb-2">
                    <div class="bg-gray-800 p-3 rounded-xl border border-gray-700"><p class="text-xs text-gray-500 uppercase">Input</p><p class="text-lg font-bold text-green-400">₹${income}</p></div>
                    <div class="bg-gray-800 p-3 rounded-xl border border-gray-700"><p class="text-xs text-gray-500 uppercase">Output</p><p class="text-lg font-bold text-red-400">₹${expense}</p></div>
                </div>
                <div class="bg-gradient-to-r from-blue-900 to-gray-900 p-3 rounded-xl border border-blue-800 flex justify-between items-center">
                    <span class="text-blue-100 font-medium">Net Balance</span>
-                   <span class="text-xl font-bold text-white">₹${income - expense}</span>
+                   <span class="text-xl font-bold text-white">₹${
+                     income - expense
+                   }</span>
                </div>
             `;
         } else {
-            document.getElementById("tracker-stats").innerHTML = "";
+          document.getElementById("tracker-stats").innerHTML = "";
         }
       }
 
@@ -416,112 +450,130 @@
       // --- DATA OPERATIONS ---
 
       async function loadMeta() {
-         updateStatus("Syncing Apps...", "yellow-400");
-         try {
-             // 1. Get List of Sheets
-             const res = await fetch(`${APP_.apiUrl}?action=get_sheets`);
-             const json = await res.json();
+        updateStatus("Syncing Apps...", "yellow-400");
+        try {
+          // 1. Get List of Sheets
+          const res = await fetch(`${APP_.apiUrl}?action=get_sheets`);
+          const json = await res.json();
 
-             if(json.status === "success") {
-                 APP_.sheets = json.data;
-                 localStorage.setItem("sheetSync_meta", JSON.stringify(APP_.sheets));
-                 renderDashboard();
-                 updateStatus("Ready", "green-400");
-             }
-         } catch(e) {
-             console.error(e);
-             updateStatus("Offline", "red-400");
-             // Load from Cache
-             const cached = localStorage.getItem("sheetSync_meta");
-             if(cached) {
-                 APP_.sheets = JSON.parse(cached);
-                 renderDashboard();
-             }
-         }
+          if (json.status === "success") {
+            APP_.sheets = json.data;
+            localStorage.setItem("sheetSync_meta", JSON.stringify(APP_.sheets));
+            renderDashboard();
+            updateStatus("Ready", "green-400");
+          }
+        } catch (e) {
+          console.error(e);
+          updateStatus("Offline", "red-400");
+          // Load from Cache
+          const cached = localStorage.getItem("sheetSync_meta");
+          if (cached) {
+            APP_.sheets = JSON.parse(cached);
+            renderDashboard();
+          }
+        }
       }
 
       async function loadData(sheetName) {
-         updateStatus("Fetching Data...", "yellow-400");
-         try {
-            const res = await fetch(`${APP_.apiUrl}?action=read&sheet=${sheetName}`);
-            const json = await res.json();
-            if(json.status === "success") {
-                // reverse for recent first
-                APP_.data = json.data.reverse();
-                renderTrackerData();
-                updateStatus("Ready", "green-400");
-            }
-         } catch(e) {
-             updateStatus("Offline (Read Error)", "red-400");
-         }
+        updateStatus("Fetching Data...", "yellow-400");
+        try {
+          const res = await fetch(
+            `${APP_.apiUrl}?action=read&sheet=${sheetName}`
+          );
+          const json = await res.json();
+          if (json.status === "success") {
+            // reverse for recent first
+            APP_.data = json.data.reverse();
+            renderTrackerData();
+            updateStatus("Ready", "green-400");
+          }
+        } catch (e) {
+          updateStatus("Offline (Read Error)", "red-400");
+        }
       }
 
       async function createNewTracker() {
-          const name = document.getElementById("new-tracker-name").value.trim();
-          const fieldsStr = document.getElementById("new-tracker-fields").value.trim();
+        const name = document.getElementById("new-tracker-name").value.trim();
+        const fieldsStr = document
+          .getElementById("new-tracker-fields")
+          .value.trim();
 
-          if(!name || !fieldsStr) return alert("Fill all fields");
+        if (!name || !fieldsStr) return alert("Fill all fields");
 
-          const headers = fieldsStr.split(",").map(s => s.trim());
-          // Always ensure 'id' represents a unique row if needed, but here user defines.
-          // Ideally we might want to auto-inject 'id' or 'timestamp'.
-          // For now, trust user.
+        const headers = fieldsStr.split(",").map((s) => s.trim());
+        // Always ensure 'id' represents a unique row if needed, but here user defines.
+        // Ideally we might want to auto-inject 'id' or 'timestamp'.
+        // For now, trust user.
 
-          updateStatus("Creating Sheet...", "blue-400");
-          document.getElementById("create-tracker-modal").classList.add("modal-hidden");
-          document.getElementById("create-tracker-modal").classList.remove("modal-visible");
+        updateStatus("Creating Sheet...", "blue-400");
+        document
+          .getElementById("create-tracker-modal")
+          .classList.add("modal-hidden");
+        document
+          .getElementById("create-tracker-modal")
+          .classList.remove("modal-visible");
 
-          try {
-              const res = await fetch(APP_.apiUrl, {
-                  method: "POST",
-                  mode: "no-cors",
-                  body: JSON.stringify({
-                      action: "create_sheet",
-                      name: name,
-                      headers: headers
-                  })
-              });
+        try {
+          const res = await fetch(APP_.apiUrl, {
+            method: "POST",
+            mode: "no-cors",
+            body: JSON.stringify({
+              action: "create_sheet",
+              name: name,
+              headers: headers,
+            }),
+          });
 
-              // Wait a bit for propagation then reload
-              setTimeout(() => {
-                  loadMeta();
-                  alert("Tracker created! It may take a few seconds to appear.");
-              }, 2000);
-
-          } catch(e) {
-              alert("Error creating tracker: " + e.message);
-          }
+          // Wait a bit for propagation then reload
+          setTimeout(() => {
+            loadMeta();
+            alert("Tracker created! It may take a few seconds to appear.");
+          }, 2000);
+        } catch (e) {
+          alert("Error creating tracker: " + e.message);
+        }
       }
 
       // --- DYNAMIC FORMS ---
 
       function handleFabClick() {
-          if(!APP_.currentSheet) return;
-          buildForm(APP_.currentSheet.headers);
+        if (!APP_.currentSheet) return;
+        buildForm(APP_.currentSheet.headers);
 
-          const m = document.getElementById("form-modal");
-          m.classList.remove("modal-hidden");
-          m.classList.add("modal-visible");
+        const m = document.getElementById("form-modal");
+        m.classList.remove("modal-hidden");
+        m.classList.add("modal-visible");
       }
 
       function buildForm(headers) {
-          const form = document.getElementById("dynamic-form");
-          form.innerHTML = "";
+        const form = document.getElementById("dynamic-form");
+        form.innerHTML = "";
 
-          headers.forEach(h => {
-             const lower = h.toLowerCase();
-             if(lower === "id") return; // Skip ID
+        headers.forEach((h) => {
+          const lower = h.toLowerCase();
+          if (lower === "id") return; // Skip ID
 
-             let inputType = "text";
-             let html = "";
+          let inputType = "text";
+          let html = "";
 
-             // Infer type
-             if(lower.includes("date")) inputType = "date";
-             else if(lower.includes("amount") || lower.includes("price") || lower.includes("cost") || lower === "reps" || lower === "sets") inputType = "number";
+          // Infer type
+          if (lower.includes("date")) inputType = "date";
+          else if (
+            lower.includes("amount") ||
+            lower.includes("price") ||
+            lower.includes("cost") ||
+            lower === "reps" ||
+            lower === "sets"
+          )
+            inputType = "number";
 
-             // Special: Category or Type Select
-             if(lower === "type" && (APP_.currentSheet.name.toLowerCase().includes("financ") || APP_.currentSheet.name.toLowerCase().includes("money"))) {
-                  html = `
+          // Special: Category or Type Select
+          if (
+            lower === "type" &&
+            (APP_.currentSheet.name.toLowerCase().includes("financ") ||
+              APP_.currentSheet.name.toLowerCase().includes("money"))
+          ) {
+            html = `
                     <div>
                         <label class="block text-xs font-semibold text-gray-400 mb-1 capitalize">${h}</label>
                         <select name="${h}" class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white outline-none">
@@ -529,94 +581,105 @@
                             <option>Income</option>
                         </select>
                     </div>`;
-             } else {
-                 // Standard Input
-                 html = `
+          } else {
+            // Standard Input
+            html = `
                     <div>
                         <label class="block text-xs font-semibold text-gray-400 mb-1 capitalize">${h}</label>
-                        <input type="${inputType}" name="${h}" step="any" required class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white outline-none focus:border-blue-500" ${inputType==='date' ? `value="${new Date().toISOString().split('T')[0]}"` : ''}>
+                        <input type="${inputType}" name="${h}" step="any" required class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white outline-none focus:border-blue-500" ${
+              inputType === "date"
+                ? `value="${new Date().toISOString().split("T")[0]}"`
+                : ""
+            }>
                     </div>
                  `;
-             }
-             form.insertAdjacentHTML('beforeend', html);
-          });
+          }
+          form.insertAdjacentHTML("beforeend", html);
+        });
 
-          form.insertAdjacentHTML('beforeend', `<button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold mt-2">Save Entry</button>`);
+        form.insertAdjacentHTML(
+          "beforeend",
+          `<button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold mt-2">Save Entry</button>`
+        );
       }
 
       async function handleFormSubmit(e) {
-          e.preventDefault();
-          const form = e.target;
-          const formData = new FormData(form);
-          const data = {};
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+        const data = {};
 
-          // Collect data
-          APP_.currentSheet.headers.forEach(h => {
-               if(h.toLowerCase() === "id") data[h] = crypto.randomUUID();
-               else data[h] = formData.get(h);
+        // Collect data
+        APP_.currentSheet.headers.forEach((h) => {
+          if (h.toLowerCase() === "id") data[h] = crypto.randomUUID();
+          else data[h] = formData.get(h);
+        });
+
+        closeFormModal();
+
+        // Optimistic UI (Add to top)
+        APP_.data.unshift(data);
+        renderTrackerData();
+
+        // Sync
+        updateStatus("Saving...", "blue-400");
+        try {
+          await fetch(APP_.apiUrl, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain" }, // Avoid preflight
+            body: JSON.stringify({
+              action: "add",
+              sheet: APP_.currentSheet.name,
+              data: data,
+            }),
           });
-
-          closeFormModal();
-
-          // Optimistic UI (Add to top)
-          APP_.data.unshift(data);
-          renderTrackerData();
-
-          // Sync
-          updateStatus("Saving...", "blue-400");
-          try {
-             await fetch(APP_.apiUrl, {
-                 method: "POST",
-                 mode: "no-cors",
-                 headers: {"Content-Type": "text/plain"}, // Avoid preflight
-                 body: JSON.stringify({
-                     action: "add",
-                     sheet: APP_.currentSheet.name,
-                     data: data
-                 })
-             });
-             // Reconfirm
-             setTimeout(() => loadData(APP_.currentSheet.name), 1000);
-          } catch(err) {
-              alert("Error syncing: " + err.message);
-          }
+          // Reconfirm
+          setTimeout(() => loadData(APP_.currentSheet.name), 1000);
+        } catch (err) {
+          alert("Error syncing: " + err.message);
+        }
       }
 
       // --- HELPERS & MODALS ---
       function updateStatus(text, color) {
-        document.getElementById("status-indicator").innerHTML = `<i class="fas fa-circle text-[8px] mr-1 text-${color}"></i> ${text}`;
+        document.getElementById(
+          "status-indicator"
+        ).innerHTML = `<i class="fas fa-circle text-[8px] mr-1 text-${color}"></i> ${text}`;
       }
       function openSettings() {
-         document.getElementById("inp-api-url").value = APP_.apiUrl;
-         const m = document.getElementById("settings-modal");
-         m.classList.remove("modal-hidden");
-         m.classList.add("modal-visible");
+        document.getElementById("inp-api-url").value = APP_.apiUrl;
+        const m = document.getElementById("settings-modal");
+        m.classList.remove("modal-hidden");
+        m.classList.add("modal-visible");
       }
       function closeSettings() {
-         document.getElementById("settings-modal").classList.remove("modal-visible");
-         document.getElementById("settings-modal").classList.add("modal-hidden");
+        document
+          .getElementById("settings-modal")
+          .classList.remove("modal-visible");
+        document.getElementById("settings-modal").classList.add("modal-hidden");
       }
       function saveSettings() {
-         const url = document.getElementById("inp-api-url").value.trim();
-         if(url) {
-             localStorage.setItem("sheetSync_url", url);
-             APP_.apiUrl = url;
-             closeSettings();
-             loadMeta();
-         }
-      }
-      function refreshSheetList() {
+        const url = document.getElementById("inp-api-url").value.trim();
+        if (url) {
+          localStorage.setItem("sheetSync_url", url);
+          APP_.apiUrl = url;
           closeSettings();
           loadMeta();
+        }
+      }
+      function refreshSheetList() {
+        closeSettings();
+        loadMeta();
       }
       function closeFormModal() {
-         document.getElementById("form-modal").classList.remove("modal-visible");
-         document.getElementById("form-modal").classList.add("modal-hidden");
+        document.getElementById("form-modal").classList.remove("modal-visible");
+        document.getElementById("form-modal").classList.add("modal-hidden");
       }
       function openCreateTrackerModal() {
-         const m = document.getElementById("create-tracker-modal");
-         m.classList.remove("modal-hidden");
-         m.classList.add("modal-visible");
+        const m = document.getElementById("create-tracker-modal");
+        m.classList.remove("modal-hidden");
+        m.classList.add("modal-visible");
       }
     </script>
   </body>
