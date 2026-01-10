@@ -384,7 +384,7 @@
         }
 
         // --- RENDER LOGIC ---
-        APP_.data.forEach((item) => {
+        APP_.data.forEach((item, index) => {
           let html = "";
 
           if (isFinance) {
@@ -403,9 +403,14 @@
                                item.date || ""
                              } ${item.note ? "• " + item.note : ""}</p>
                         </div>
-                        <p class="font-bold ${color}">${sign}${
+                        <div class="flex items-center gap-3">
+                            <p class="font-bold ${color}">${sign}${
               APP_.settings.currency
             }${Number(item.amount).toLocaleString()}</p>
+                            <button onclick="handleItemClick(${index})" class="text-gray-400 hover:text-white p-2">
+                                <i class="fas fa-pencil"></i>
+                             </button>
+                        </div>
                     </div>
                  `;
           } else {
@@ -427,11 +432,16 @@
                                item[subKey] || ""
                              }</p>
                         </div>
-                        ${
-                          valKey
-                            ? `<p class="font-mono text-sm text-gray-300 bg-gray-700 px-2 py-1 rounded">${item[valKey]}</p>`
-                            : ""
-                        }
+                        <div class="flex items-center gap-3">
+                             ${
+                               valKey
+                                 ? `<p class="font-mono text-sm text-gray-300 bg-gray-700 px-2 py-1 rounded">${item[valKey]}</p>`
+                                 : ""
+                             }
+                             <button onclick="handleItemClick(${index})" class="text-gray-400 hover:text-white p-2">
+                                <i class="fas fa-pencil"></i>
+                             </button>
+                        </div>
                     </div>
                  `;
           }
