@@ -375,8 +375,172 @@
       </div>
     </div>
 
+    <!-- CONFIRMATION MODAL -->
+    <div
+      id="confirm-modal"
+      class="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center modal modal-hidden backdrop-blur-sm"
+    >
+      <div
+        class="bg-gray-800 w-11/12 max-w-sm rounded-2xl p-6 shadow-2xl border border-gray-700 text-center transform scale-95 transition-all"
+      >
+        <div
+          id="confirm-icon-bg"
+          class="w-16 h-16 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4"
+        >
+          <i
+            id="confirm-icon"
+            class="fas fa-exclamation-triangle text-3xl text-red-500"
+          ></i>
+        </div>
+        <h3 id="confirm-title" class="text-xl font-bold text-white mb-2">
+          Confirm Action
+        </h3>
+        <p id="confirm-msg" class="text-gray-400 text-sm mb-6 leading-relaxed">
+          Are you sure?
+        </p>
+        <div class="flex gap-3">
+          <button
+            id="confirm-cancel-btn"
+            onclick="closeConfirm(false)"
+            class="flex-1 py-3 px-4 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-xl font-semibold transition"
+          >
+            Cancel
+          </button>
+          <button
+            id="confirm-yes-btn"
+            class="flex-1 py-3 px-4 bg-red-600 hover:bg-red-500 text-white rounded-xl font-semibold shadow-lg shadow-red-900/20 transition"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- JAVASCRIPT LOGIC -->
     <script>
+      // --- MODAL HELPERS ---
+      let _confirmResolve = null;
+
+      function resetConfirmModal() {
+        const iconBg = document.getElementById("confirm-icon-bg");
+        const icon = document.getElementById("confirm-icon");
+        const yesBtn = document.getElementById("confirm-yes-btn");
+        const cancelBtn = document.getElementById("confirm-cancel-btn");
+
+        if (iconBg)
+          iconBg.className =
+            "w-16 h-16 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4";
+        if (icon)
+          icon.className = "fas fa-exclamation-triangle text-3xl text-red-500";
+        if (yesBtn)
+          yesBtn.className =
+            "flex-1 py-3 px-4 bg-red-600 hover:bg-red-500 text-white rounded-xl font-semibold shadow-lg shadow-red-900/20 transition";
+        if (cancelBtn) cancelBtn.classList.remove("hidden");
+      }
+
+      function showConfirm(title, msg, yesLabel = "Confirm") {
+        return new Promise((resolve) => {
+          _confirmResolve = resolve;
+          resetConfirmModal();
+          document.getElementById("confirm-title").innerText = title;
+          document.getElementById("confirm-msg").innerText = msg;
+          document.getElementById("confirm-yes-btn").innerText = yesLabel;
+
+          const m = document.getElementById("confirm-modal");
+          m.classList.remove("modal-hidden");
+          m.classList.add("modal-visible");
+        });
+      }
+
+      function showAlert(title, msg, type = "info") {
+        return new Promise((resolve) => {
+          _confirmResolve = resolve;
+
+          // Icon & Style Logic
+          let iconClass = "fa-info-circle";
+          let iconColor = "text-blue-500";
+          let bgClass = "bg-blue-900/30";
+          let btnClass =
+            "flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold shadow-lg shadow-blue-900/20 transition";
+
+          if (type === "success") {
+            iconClass = "fa-check-circle";
+            iconColor = "text-green-500";
+            bgClass = "bg-green-900/30";
+            btnClass =
+              "flex-1 py-3 px-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-semibold shadow-lg shadow-green-900/20 transition";
+          } else if (type === "error") {
+            iconClass = "fa-times-circle";
+            iconColor = "text-red-500";
+            bgClass = "bg-red-900/30";
+            btnClass =
+              "flex-1 py-3 px-4 bg-red-600 hover:bg-red-500 text-white rounded-xl font-semibold shadow-lg shadow-red-900/20 transition";
+          } else if (type === "warning") {
+            iconClass = "fa-exclamation-triangle";
+            iconColor = "text-yellow-500";
+            bgClass = "bg-yellow-900/30";
+            btnClass =
+              "flex-1 py-3 px-4 bg-yellow-600 hover:bg-yellow-500 text-white rounded-xl font-semibold shadow-lg shadow-yellow-900/20 transition";
+          }
+
+          // Apply Styles
+          const iconBg = document.getElementById("confirm-icon-bg");
+          if (iconBg)
+            iconBg.className = `w-16 h-16 ${bgClass} rounded-full flex items-center justify-center mx-auto mb-4`;
+
+          const icon = document.getElementById("confirm-icon");
+          if (icon) icon.className = `fas ${iconClass} text-3xl ${iconColor}`;
+
+          const yesBtn = document.getElementById("confirm-yes-btn");
+          if (yesBtn) yesBtn.className = btnClass;
+
+          // Hide Cancel Button for Alerts
+          const cancelBtn = document.getElementById("confirm-cancel-btn");
+          if (cancelBtn) cancelBtn.classList.add("hidden");
+
+          // Text
+          document.getElementById("confirm-title").innerText = title;
+          document.getElementById("confirm-msg").innerText = msg;
+          if (yesBtn) yesBtn.innerText = "OK";
+
+          const m = document.getElementById("confirm-modal");
+          m.classList.remove("modal-hidden");
+          m.classList.add("modal-visible");
+        });
+      }
+
+      function closeConfirm(result) {
+        const m = document.getElementById("confirm-modal");
+        m.classList.remove("modal-visible");
+        m.classList.add("modal-hidden");
+        if (_confirmResolve) _confirmResolve(result);
+        _confirmResolve = null;
+      }
+
+      // Handle "Yes" click separately & Outside Clicks
+      document.addEventListener("DOMContentLoaded", () => {
+        const yesBtn = document.getElementById("confirm-yes-btn");
+        if (yesBtn) yesBtn.onclick = () => closeConfirm(true);
+
+        // Close all modals on outside click
+        document.querySelectorAll(".modal").forEach((modal) => {
+          modal.addEventListener("click", (e) => {
+            if (e.target === modal) {
+              if (modal.id === "confirm-modal") closeConfirm(false);
+              else if (modal.id === "form-modal") closeFormModal();
+              else if (modal.id === "sheet-settings-modal")
+                closeSheetSettings();
+              else if (modal.id === "analytics-modal") closeAnalytics();
+              else {
+                // Generic close for others (like create tracker)
+                modal.classList.remove("modal-visible");
+                modal.classList.add("modal-hidden");
+              }
+            }
+          });
+        });
+      });
+
       // --- STATE ---
       // Helper for safe JSON parsing
       function safeParse(str, fallback) {
