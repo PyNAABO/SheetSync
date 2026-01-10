@@ -634,54 +634,52 @@
       }
 
       async function handleFormSubmit(e) {
-          e.preventDefault();
-          const form = e.target;
-          const formData = new FormData(form);
-          const data = {};
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+        const data = {};
 
-          // Collect data
-          APP_.currentSheet.headers.forEach(h => {
-               if(h.toLowerCase() === "id") {
-                   data[h] = editingId || crypto.randomUUID();
-               } else {
-                   data[h] = formData.get(h);
-               }
-          });
-
-          closeFormModal();
-
-          // Optimistic UI
-          if(editingId) {
-             const idx = APP_.data.findIndex(d => d.id === editingId);
-             if(idx !== -1) APP_.data[idx] = data;
+        // Collect data
+        APP_.currentSheet.headers.forEach((h) => {
+          if (h.toLowerCase() === "id") {
+            data[h] = editingId || crypto.randomUUID();
           } else {
-             APP_.data.unshift(data);
+            data[h] = formData.get(h);
           }
+        });
 
-          renderTrackerData();
+        closeFormModal();
 
-          // Sync
-          updateStatus("Saving...", "blue-400");
-          try {
-             const action = editingId ? "update" : "add";
-             await fetch(APP_.apiUrl, {
-                 method: "POST",
-                 mode: "no-cors",
-                 headers: {"Content-Type": "text/plain"},
-                 body: JSON.stringify({
-                     action: action,
-                     sheet: APP_.currentSheet.name,
-                     data: data
-                 })
-             });
-             // Reconfirm
-             setTimeout(() => loadData(APP_.currentSheet.name), 1000);
-          } catch(err) {
-              alert("Error syncing: " + err.message);
-          }
+        // Optimistic UI
+        if (editingId) {
+          const idx = APP_.data.findIndex((d) => d.id === editingId);
+          if (idx !== -1) APP_.data[idx] = data;
+        } else {
+          APP_.data.unshift(data);
+        }
+
+        renderTrackerData();
+
+        // Sync
+        updateStatus("Saving...", "blue-400");
+        try {
+          const action = editingId ? "update" : "add";
+          await fetch(APP_.apiUrl, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({
+              action: action,
+              sheet: APP_.currentSheet.name,
+              data: data,
+            }),
+          });
+          // Reconfirm
+          setTimeout(() => loadData(APP_.currentSheet.name), 1000);
+        } catch (err) {
+          alert("Error syncing: " + err.message);
+        }
       }
-      }
-
 
       // --- HELPERS & MODALS ---
       function updateStatus(text, color) {
