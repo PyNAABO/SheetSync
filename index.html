@@ -956,6 +956,15 @@
             else inputType = "text";
           }
 
+          // Validate inputType to be one of the allowed types
+          if (
+            !["text", "number", "date", "dropdown", "toggle"].includes(
+              inputType
+            )
+          ) {
+            inputType = "text";
+          }
+
           // Render based on input type
           if (inputType === "dropdown" && options.length > 0) {
             const optionsHtml = options

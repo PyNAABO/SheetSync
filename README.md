@@ -10,19 +10,21 @@
 
 - **🛡️ Privacy First**: Your data lives in your own Google Sheet. You own it completely.
 - **♾️ Infinite Possibilities**: Create any tracker you want:
-  - **Finance**: Income, Expenses, Balance (Auto-analyzed).
-  - **Habits**: Daily check-ins with toggle support (✅/❌).
+  - **Finance**: Income, Expenses, Balance, and Visual Analytics.
+  - **Habits**: Daily check-ins with toggle support (✅/❌) and completion charts.
   - **Health**: Workout logs, weight tracking, sleep journals.
   - **Inventory**: Store item lists, serial numbers, locations.
+- **📊 Visual Analytics**: Built-in charts to visualize your spending or habit streaks.
+- **⚙️ Schema Management**: Add or delete columns directly from the app—no need to open Google Sheets.
 - **💸 Zero Cost**: 100% Free. Hosted on GitHub Pages & Google Apps Script.
 - **📶 Offline First**: Works offline and syncs automatically when online.
-- **📱 Native Feel**: Installable PWA with smooth animations and haptic feedback.
+- **📱 Native Feel**: Installable PWA with smooth animations, haptic feedback, and skeleton loaders.
 
 ## 🛠️ How It Works
 
 SheetSync OS reads the headers of your Google Sheet to determine how to display data:
 
-- **Finance Mode**: If headers include `amount`, `type`, and `category`, it automatically shows income/expense stats.
+- **Finance Mode**: If headers include `amount`, `type`, and `category`, it automatically shows income/expense stats and charts.
 - **Habit Mode**: If you use toggle columns (checkboxes), it tracks your completion streaks.
 - **Generic Lists**: For everything else, it renders a clean, searchable list card.
 
