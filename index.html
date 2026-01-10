@@ -664,9 +664,9 @@
         updateStatus("Saving...", "blue-400");
         try {
           const action = editingId ? "update" : "add";
-          await fetch(APP_.apiUrl, {
+          const res = await fetch(APP_.apiUrl, {
             method: "POST",
-            mode: "no-cors",
+            // mode: "no-cors", // Removed to see errors
             headers: { "Content-Type": "text/plain" },
             body: JSON.stringify({
               action: action,
@@ -674,10 +674,31 @@
               data: data,
             }),
           });
+
+          const text = await res.text();
+          let json = null;
+          try {
+            json = JSON.parse(text);
+          } catch (e) {
+            // If not JSON, it's likely an HTML error page (Auth/404)
+            throw new Error(
+              "Invalid Server Response. Check URL & Permissions. Response: " +
+                text.substring(0, 50) +
+                "..."
+            );
+          }
+
+          if (json.status === "error") {
+            throw new Error(json.message || "Unknown Server Error");
+          }
+
           // Reconfirm
           setTimeout(() => loadData(APP_.currentSheet.name), 1000);
+          updateStatus("Saved", "green-400");
         } catch (err) {
+          console.error(err);
           alert("Error syncing: " + err.message);
+          updateStatus("Error", "red-400");
         }
       }
 
