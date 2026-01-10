@@ -51,33 +51,112 @@ Follow these simple steps to deploy your own instance of SheetSync.
 ```javascript
 // backend.gs
 function doGet(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet1");
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const rows = data.slice(1);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const params = e.parameter;
+  const action = params.action;
 
-  const formatted = rows.map((r) => {
-    let obj = {};
-    headers.forEach((h, i) => (obj[h] = r[i]));
-    return obj;
-  });
+  // 1. "get_sheets": List all sheets (tabs) and their headers
+  if (action === "get_sheets") {
+    const sheets = ss.getSheets();
+    const data = sheets.map((s) => {
+      const rows = s.getDataRange().getValues();
+      return {
+        name: s.getName(),
+        headers: rows.length > 0 ? rows[0] : [],
+      };
+    });
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "success", data: data })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // 2. "read": Read data from a specific sheet
+  if (action === "read") {
+    const sheetName = params.sheet;
+    if (!sheetName)
+      return ContentService.createTextOutput(
+        JSON.stringify({ status: "error", message: "Missing sheet name" })
+      ).setMimeType(ContentService.MimeType.JSON);
+
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet)
+      return ContentService.createTextOutput(
+        JSON.stringify({ status: "error", message: "Sheet not found" })
+      ).setMimeType(ContentService.MimeType.JSON);
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length < 2)
+      return ContentService.createTextOutput(
+        JSON.stringify({ status: "success", data: [] })
+      ).setMimeType(ContentService.MimeType.JSON);
+
+    const headers = data[0];
+    const rows = data.slice(1);
+    const formatted = rows.map((r) => {
+      let obj = {};
+      headers.forEach((h, i) => (obj[h] = r[i]));
+      return obj;
+    });
+
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "success", data: formatted })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
 
   return ContentService.createTextOutput(
-    JSON.stringify({ status: "success", data: formatted })
+    JSON.stringify({ status: "error", message: "Invalid action" })
   ).setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet1");
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const json = JSON.parse(e.postData.contents);
+  const action = json.action;
 
-  if (json.action === "add") {
-    const d = json.data;
-    sheet.appendRow([d.id, d.date, d.type, d.category, d.amount, d.note]);
+  // 3. "add": Add a row to a specific sheet
+  if (action === "add") {
+    const sheetName = json.sheet;
+    const item = json.data;
+    const sheet = ss.getSheetByName(sheetName);
+
+    if (!sheet)
+      return ContentService.createTextOutput(
+        JSON.stringify({ status: "error", message: "Sheet not found" })
+      ).setMimeType(ContentService.MimeType.JSON);
+
+    const headers = sheet
+      .getRange(1, 1, 1, sheet.getLastColumn())
+      .getValues()[0];
+    const row = headers.map((h) => item[h] || "");
+
+    sheet.appendRow(row);
     return ContentService.createTextOutput(
       JSON.stringify({ status: "success" })
-    );
+    ).setMimeType(ContentService.MimeType.JSON);
   }
+
+  // 4. "create_sheet": Create a new tab
+  if (action === "create_sheet") {
+    const name = json.name;
+    const headers = json.headers;
+
+    if (ss.getSheetByName(name))
+      return ContentService.createTextOutput(
+        JSON.stringify({ status: "error", message: "Sheet already exists" })
+      ).setMimeType(ContentService.MimeType.JSON);
+
+    const newSheet = ss.insertSheet(name);
+    newSheet.appendRow(headers);
+    newSheet.setFrozenRows(1);
+
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "success" })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  return ContentService.createTextOutput(
+    JSON.stringify({ status: "error", message: "Invalid action" })
+  ).setMimeType(ContentService.MimeType.JSON);
 }
 ```
 
