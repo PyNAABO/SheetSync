@@ -451,25 +451,55 @@
 
       async function loadMeta() {
         updateStatus("Syncing Apps...", "yellow-400");
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
+
         try {
           // 1. Get List of Sheets
-          const res = await fetch(`${APP_.apiUrl}?action=get_sheets`);
+          const res = await fetch(`${APP_.apiUrl}?action=get_sheets`, {
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+
           const json = await res.json();
 
           if (json.status === "success") {
+            // VALIDATION: Check if response is from new backend
+            if (
+              Array.isArray(json.data) &&
+              json.data.length > 0 &&
+              !json.data[0].name
+            ) {
+              throw new Error(
+                "Backend mismatch! Please Deploy a 'New Version' in Apps Script."
+              );
+            }
+
             APP_.sheets = json.data;
             localStorage.setItem("sheetSync_meta", JSON.stringify(APP_.sheets));
             renderDashboard();
             updateStatus("Ready", "green-400");
+          } else {
+            throw new Error(json.message || "Unknown API Error");
           }
         } catch (e) {
           console.error(e);
-          updateStatus("Offline", "red-400");
-          // Load from Cache
+          updateStatus("Error", "red-400");
+
+          let msg = e.message;
+          if (e.name === "AbortError") msg = "Connection Timed Out";
+
+          // Show visible alert for troubleshooting
+          alert(
+            `Connection Failed: ${msg}\n\nTip: Check Google Sheet permissions or 'Manage Deployments' > 'New Version'`
+          );
+
+          // Load from Cache if possible
           const cached = localStorage.getItem("sheetSync_meta");
           if (cached) {
             APP_.sheets = JSON.parse(cached);
             renderDashboard();
+            updateStatus("Offline Mode", "gray-400");
           }
         }
       }
@@ -604,42 +634,54 @@
       }
 
       async function handleFormSubmit(e) {
-        e.preventDefault();
-        const form = e.target;
-        const formData = new FormData(form);
-        const data = {};
+          e.preventDefault();
+          const form = e.target;
+          const formData = new FormData(form);
+          const data = {};
 
-        // Collect data
-        APP_.currentSheet.headers.forEach((h) => {
-          if (h.toLowerCase() === "id") data[h] = crypto.randomUUID();
-          else data[h] = formData.get(h);
-        });
-
-        closeFormModal();
-
-        // Optimistic UI (Add to top)
-        APP_.data.unshift(data);
-        renderTrackerData();
-
-        // Sync
-        updateStatus("Saving...", "blue-400");
-        try {
-          await fetch(APP_.apiUrl, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "text/plain" }, // Avoid preflight
-            body: JSON.stringify({
-              action: "add",
-              sheet: APP_.currentSheet.name,
-              data: data,
-            }),
+          // Collect data
+          APP_.currentSheet.headers.forEach(h => {
+               if(h.toLowerCase() === "id") {
+                   data[h] = editingId || crypto.randomUUID();
+               } else {
+                   data[h] = formData.get(h);
+               }
           });
-          // Reconfirm
-          setTimeout(() => loadData(APP_.currentSheet.name), 1000);
-        } catch (err) {
-          alert("Error syncing: " + err.message);
-        }
+
+          closeFormModal();
+
+          // Optimistic UI
+          if(editingId) {
+             const idx = APP_.data.findIndex(d => d.id === editingId);
+             if(idx !== -1) APP_.data[idx] = data;
+          } else {
+             APP_.data.unshift(data);
+          }
+
+          renderTrackerData();
+
+          // Sync
+          updateStatus("Saving...", "blue-400");
+          try {
+             const action = editingId ? "update" : "add";
+             await fetch(APP_.apiUrl, {
+                 method: "POST",
+                 mode: "no-cors",
+                 headers: {"Content-Type": "text/plain"},
+                 body: JSON.stringify({
+                     action: action,
+                     sheet: APP_.currentSheet.name,
+                     data: data
+                 })
+             });
+             // Reconfirm
+             setTimeout(() => loadData(APP_.currentSheet.name), 1000);
+          } catch(err) {
+              alert("Error syncing: " + err.message);
+          }
       }
+      }
+
 
       // --- HELPERS & MODALS ---
       function updateStatus(text, color) {

@@ -85,6 +85,43 @@ function doPost(e) {
     return jsonResponse({ status: "success", headers: headers });
   }
 
+  // 5. "update": Update a row by ID
+  if (action === "update") {
+    const sheetName = json.sheet;
+    const item = json.data;
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet)
+      return jsonResponse({ status: "error", message: "Sheet not found" });
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIndex = headers.indexOf("id");
+
+    if (idIndex === -1)
+      return jsonResponse({ status: "error", message: "No 'id' column found" });
+
+    // Find row with matching ID
+    let rowIndex = -1;
+    // data[0] is headers. data[1] is row 2.
+    for (let i = 1; i < data.length; i++) {
+      // Ensure string comparison
+      if (String(data[i][idIndex]) === String(item.id)) {
+        rowIndex = i + 1; // 1-based index for getRange
+        break;
+      }
+    }
+
+    if (rowIndex === -1)
+      return jsonResponse({ status: "error", message: "ID not found" });
+
+    // Construct new row based on headers order
+    const newRow = headers.map((h) => item[h] || "");
+
+    // Write the row
+    sheet.getRange(rowIndex, 1, 1, headers.length).setValues([newRow]);
+    return jsonResponse({ status: "success" });
+  }
+
   return jsonResponse({ status: "error", message: "Invalid action" });
 }
 

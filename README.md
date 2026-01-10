@@ -154,6 +154,46 @@ function doPost(e) {
     ).setMimeType(ContentService.MimeType.JSON);
   }
 
+  // 5. "update": Update a row by ID
+  if (action === "update") {
+    const sheetName = json.sheet;
+    const item = json.data;
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet)
+      return ContentService.createTextOutput(
+        JSON.stringify({ status: "error", message: "Sheet not found" })
+      ).setMimeType(ContentService.MimeType.JSON);
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIndex = headers.indexOf("id");
+
+    if (idIndex === -1)
+      return ContentService.createTextOutput(
+        JSON.stringify({ status: "error", message: "No 'id' column found" })
+      ).setMimeType(ContentService.MimeType.JSON);
+
+    let rowIndex = -1;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idIndex]) === String(item.id)) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1)
+      return ContentService.createTextOutput(
+        JSON.stringify({ status: "error", message: "ID not found" })
+      ).setMimeType(ContentService.MimeType.JSON);
+
+    const newRow = headers.map((h) => item[h] || "");
+    sheet.getRange(rowIndex, 1, 1, headers.length).setValues([newRow]);
+
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "success" })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+
   return ContentService.createTextOutput(
     JSON.stringify({ status: "error", message: "Invalid action" })
   ).setMimeType(ContentService.MimeType.JSON);
