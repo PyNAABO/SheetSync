@@ -482,69 +482,83 @@
 
         // Render App Cards
         APP_.sheets.forEach((sheet) => {
-            const sheetSettings = APP_.fieldSettings[sheet.name] || {};
-            
-            // --- Determine Heuristics independently ---
-            const lowerName = sheet.name.toLowerCase();
-            let heuristicIcon = "fa-table";
-            let heuristicColor = "gray"; // default key
+          const sheetSettings = APP_.fieldSettings[sheet.name] || {};
 
-            if (lowerName.includes("financ") || lowerName.includes("budget") || lowerName.includes("money")) {
-                heuristicIcon = "fa-wallet";
-                heuristicColor = "blue";
-            } else if (lowerName.includes("habit") || lowerName.includes("daily") || lowerName.includes("routine")) {
-                heuristicIcon = "fa-check-circle";
-                heuristicColor = "green";
-            } else if (lowerName.includes("gym") || lowerName.includes("workout") || lowerName.includes("fitness")) {
-                heuristicIcon = "fa-dumbbell";
-                heuristicColor = "orange";
-            } else if (lowerName.includes("book") || lowerName.includes("read") || lowerName.includes("learn")) {
-                heuristicIcon = "fa-book";
-                heuristicColor = "purple";
-            }
+          // --- Determine Icon & Color ---
+          let iconClass = "fa-table";
+          let colorClass = "bg-gray-800 border-gray-700"; // Default background and border
+          let cardStyle = "";
 
-            // --- Resolve Final Icon ---
-            // User setting > Heuristic > Default
-            let finalIcon = sheetSettings._icon ? sheetSettings._icon.trim() : heuristicIcon;
-            if (finalIcon && !finalIcon.startsWith("fa-")) {
-                finalIcon = "fa-" + finalIcon;
-            }
+          // 1. Custom settings take priority
+          if (sheetSettings._icon) iconClass = sheetSettings._icon;
 
-            // --- Resolve Final Color ---
-            // User setting > Heuristic > Default
-            let finalColorValue = sheetSettings._color ? sheetSettings._color.trim() : heuristicColor;
-            
-            // Map keys to Tailwind Gradients
+          if (sheetSettings._color) {
+            const c = sheetSettings._color;
+            // Map simple color names to Tailwind gradients
             const colorMap = {
-                "blue": "bg-gradient-to-br from-blue-900 to-blue-800 border-blue-700 text-blue-100",
-                "green": "bg-gradient-to-br from-green-900 to-green-800 border-green-700 text-green-100",
-                "red": "bg-gradient-to-br from-red-900 to-red-800 border-red-700 text-red-100",
-                "purple": "bg-gradient-to-br from-purple-900 to-purple-800 border-purple-700 text-purple-100",
-                "orange": "bg-gradient-to-br from-orange-900 to-orange-800 border-orange-700 text-orange-100",
-                "gray": "bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700 text-gray-200"
+              blue: "bg-gradient-to-br from-blue-900 to-blue-800 border-blue-700 text-blue-100",
+              green:
+                "bg-gradient-to-br from-green-900 to-green-800 border-green-700 text-green-100",
+              red: "bg-gradient-to-br from-red-900 to-red-800 border-red-700 text-red-100",
+              purple:
+                "bg-gradient-to-br from-purple-900 to-purple-800 border-purple-700 text-purple-100",
+              orange:
+                "bg-gradient-to-br from-orange-900 to-orange-800 border-orange-700 text-orange-100",
+              gray: "bg-gradient-to-br from-gray-800 to-gray-900 border-gray-700 text-gray-200",
             };
 
-            let containerClass = "";
-            let containerStyle = "";
-
-            if (colorMap[finalColorValue]) {
-                // It's a preset key
-                containerClass = colorMap[finalColorValue];
-            } else if (finalColorValue.startsWith("#")) {
-                // It's a Hex Code - Use generic base + inline style
-                containerClass = "border-gray-700 text-white"; // fallback text color
-                containerStyle = `background-color: ${finalColorValue}; border-color: ${finalColorValue};`;
+            if (c.startsWith("#")) {
+              // Custom Hex Color
+              cardStyle = `background-color: ${c}; border-color: ${c}; color: white;`;
+              colorClass = ""; // Clear default Tailwind classes if style is set
+            } else if (colorMap[c.toLowerCase()]) {
+              colorClass = colorMap[c.toLowerCase()];
             } else {
-                // Fallback / Unknown text
-                containerClass = colorMap["gray"];
+              // Fallback or raw class
+              colorClass = c;
             }
+          } else {
+            // 2. Heuristic Fallback
+            const lowerName = sheet.name.toLowerCase();
+            if (
+              lowerName.includes("finance") ||
+              lowerName.includes("budget") ||
+              lowerName.includes("money")
+            ) {
+              iconClass = "fa-wallet";
+              colorClass =
+                "bg-gradient-to-br from-blue-900 to-blue-800 border-blue-700 text-blue-100";
+            } else if (
+              lowerName.includes("habit") ||
+              lowerName.includes("daily") ||
+              lowerName.includes("routine")
+            ) {
+              iconClass = "fa-check-circle";
+              colorClass =
+                "bg-gradient-to-br from-green-900 to-green-800 border-green-700 text-green-100";
+            } else if (
+              lowerName.includes("gym") ||
+              lowerName.includes("workout") ||
+              lowerName.includes("fitness")
+            ) {
+              iconClass = "fa-dumbbell";
+              colorClass =
+                "bg-gradient-to-br from-orange-900 to-orange-800 border-orange-700 text-orange-100";
+            } else if (
+              lowerName.includes("book") ||
+              lowerName.includes("read") ||
+              lowerName.includes("learn")
+            ) {
+              iconClass = "fa-book";
+              colorClass =
+                "bg-gradient-to-br from-purple-900 to-purple-800 border-purple-700 text-purple-100";
+            }
+          }
 
           const card = `
-             <div onclick="openTracker('${sheet.name}')" 
-                  class="${containerClass} p-4 rounded-2xl flex flex-col items-center justify-center gap-3 aspect-square active:scale-95 transition cursor-pointer shadow-lg hover:shadow-xl hover:border-gray-500 group"
-                  style="${containerStyle}">
-                <i class="fas ${finalIcon} text-3xl text-gray-200 group-hover:text-white transition"></i>
-                <span class="font-semibold text-sm text-center text-gray-300 group-hover:text-white mix-blend-plus-lighter">${sheet.name}</span>
+             <div onclick="openTracker('${sheet.name}')" style="${cardStyle}" class="${colorClass} p-4 rounded-2xl flex flex-col items-center justify-center gap-3 aspect-square active:scale-95 transition cursor-pointer shadow-lg hover:shadow-xl hover:border-gray-500 group">
+                <i class="fas ${iconClass} text-3xl text-gray-200 group-hover:text-white transition"></i>
+                <span class="font-semibold text-sm text-center text-gray-300 group-hover:text-white">${sheet.name}</span>
              </div>
            `;
           grid.insertAdjacentHTML("beforeend", card);
@@ -1342,24 +1356,13 @@
                     <label class="block text-xs font-semibold text-gray-400 mb-1">Icon (FontAwesome)</label>
                     <input type="text" id="sheet-icon" value="${
                       settings._icon || ""
-                    }" placeholder="fa-table" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm">
+                    }" placeholder="e.g. smile, car (auto-prefixed)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm">
                  </div>
                  <div>
-                    <label class="block text-xs font-semibold text-gray-400 mb-1">Color Theme</label>
-                    <div class="flex gap-2">
-                       <input type="text" id="sheet-color" value="${settings._color || ''}" placeholder="blue or #RRGGBB" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm">
-                       <input type="color" id="sheet-color-picker" value="${settings._color && settings._color.startsWith('#') ? settings._color : '#2563eb'}" class="w-10 h-10 p-0 border-0 rounded-lg overflow-hidden cursor-pointer">
-                    </div>
-                    <script>
-                        document.getElementById('sheet-color-picker').addEventListener('input', (e) => {
-                            document.getElementById('sheet-color').value = e.target.value;
-                        });
-                        document.getElementById('sheet-color').addEventListener('input', (e) => {
-                           if(e.target.value.startsWith('#')) {
-                               document.getElementById('sheet-color-picker').value = e.target.value;
-                           }
-                        });
-                    </script>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Color (Name or Hex)</label>
+                    <input type="text" id="sheet-color" value="${
+                      settings._color || ""
+                    }" placeholder="e.g. blue, #10b981" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm">
                  </div>
              </div>
           </div>
@@ -1592,8 +1595,14 @@
         // Save display settings
         settings._sortOrder = document.getElementById("sheet-sort-order").value;
         settings._textSize = document.getElementById("sheet-text-size").value;
-        settings._icon = document.getElementById("sheet-icon").value.trim();
-        settings._color = document.getElementById("sheet-color").value;
+
+        let iconVal = document.getElementById("sheet-icon").value.trim();
+        if (iconVal && !iconVal.startsWith("fa-")) {
+          iconVal = "fa-" + iconVal;
+        }
+        settings._icon = iconVal;
+
+        settings._color = document.getElementById("sheet-color").value.trim();
 
         // Save field settings
         container.querySelectorAll(".field-type-select").forEach((select) => {
