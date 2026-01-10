@@ -166,7 +166,11 @@ function doPost(e) {
 
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
-    const idIndex = headers.indexOf("id");
+
+    // CASE-INSENSITIVE ID LOOKUP
+    const idIndex = headers.findIndex(
+      (h) => h.toString().toLowerCase() === "id"
+    );
 
     if (idIndex === -1)
       return ContentService.createTextOutput(
@@ -174,8 +178,11 @@ function doPost(e) {
       ).setMimeType(ContentService.MimeType.JSON);
 
     let rowIndex = -1;
+    // Find row match
+    const targetId = String(item.id || item.ID || item.Id);
+
     for (let i = 1; i < data.length; i++) {
-      if (String(data[i][idIndex]) === String(item.id)) {
+      if (String(data[i][idIndex]) === targetId) {
         rowIndex = i + 1;
         break;
       }
