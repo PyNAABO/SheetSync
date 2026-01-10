@@ -1260,7 +1260,12 @@
         const url = document.getElementById("inp-api-url").value.trim();
         const currency = document.getElementById("inp-currency").value;
 
-        if (!url) return alert("Please enter a valid API URL");
+        if (!url)
+          return showAlert(
+            "Missing URL",
+            "Please enter a valid Web App URL.",
+            "error"
+          );
 
         if (
           !confirm(
@@ -1288,7 +1293,11 @@
       }
       function validateSchema() {
         if (!APP_.sheets || APP_.sheets.length === 0) {
-          return alert("No sheets found to validate. Please connect first.");
+          return showAlert(
+            "No Sheets",
+            "No sheets found to validate. Please connect first.",
+            "error"
+          );
         }
 
         let report = "Schema Validation Report:\n\n";
@@ -1316,10 +1325,17 @@
         });
 
         if (issues === 0) {
-          alert("All sheets look good! ✅");
+          showAlert(
+            "All Good!",
+            "Your sheet structure is perfect. ✅",
+            "success"
+          );
         } else {
-          alert(
-            report + "\nPlease add these columns to Row 1 of your Google Sheet."
+          showAlert(
+            "Schema Issues",
+            report +
+              "\nPlease add these columns to Row 1 of your Google Sheet.",
+            "warning"
           );
         }
       }
@@ -1493,7 +1509,12 @@
       async function handleAddColumn() {
         const nameInput = document.getElementById("new-col-name");
         const name = nameInput.value.trim();
-        if (!name) return alert("Enter a column name");
+        if (!name)
+          return showAlert(
+            "Missing Name",
+            "Please enter a column name.",
+            "warning"
+          );
 
         const btn =
           event.currentTarget ||
@@ -1523,25 +1544,26 @@
             );
             openSheetSettings(); // Re-render settings
           } else {
-            alert("Error: " + json.message);
+            showAlert("Error", json.message, "error");
             updateStatus("Error", "red-400");
             btn.disabled = false;
             btn.innerHTML = originalText;
           }
         } catch (e) {
-          alert(e.message);
+          showAlert("Error", e.message, "error");
           btn.disabled = false;
           btn.innerHTML = originalText;
         }
       }
 
       async function handleDeleteColumn(name) {
-        if (
-          !confirm(
-            `Are you sure you want to delete column '${name}'?\n\nTHIS CANNOT BE UNDONE. All data in this column will be lost forever.`
-          )
-        )
-          return;
+        const confirmed = await showConfirm(
+          "Delete Column?",
+          `Are you sure you want to delete column '${name}'?\n\nTHIS CANNOT BE UNDONE. All data in this column will be lost forever.`,
+          "Delete Forever"
+        );
+
+        if (!confirmed) return;
 
         const btn = event.currentTarget; // The trash button
         const originalHtml = btn.innerHTML;
@@ -1567,13 +1589,13 @@
             );
             openSheetSettings();
           } else {
-            alert("Error: " + json.message);
+            showAlert("Error", json.message, "error");
             updateStatus("Error", "red-400");
             btn.disabled = false;
             btn.innerHTML = originalHtml;
           }
         } catch (e) {
-          alert(e.message);
+          showAlert("Error", e.message, "error");
           btn.disabled = false;
           btn.innerHTML = originalHtml;
         }
@@ -1637,7 +1659,11 @@
 
       function openAnalytics() {
         if (!APP_.currentSheet || APP_.data.length === 0) {
-          alert("No data to analyze");
+          showAlert(
+            "No Data",
+            "There is no data to analyze in this sheet yet.",
+            "info"
+          );
           return;
         }
 
