@@ -18,10 +18,7 @@
       content="black-translucent"
     />
     <meta name="theme-color" content="#1e293b" />
-    <link
-      rel="apple-touch-icon"
-      href="https://cdn-icons-png.flaticon.com/512/2936/2936758.png"
-    />
+    <link rel="apple-touch-icon" href="assets/icon.png" />
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -63,7 +60,28 @@
         pointer-events: auto;
         transform: scale(1);
       }
+      /* Skeleton Loader */
+      .skeleton {
+        background: linear-gradient(
+          90deg,
+          #1f2937 25%,
+          #374151 50%,
+          #1f2937 75%
+        );
+        background-size: 200% 100%;
+        animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      @keyframes pulse {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
     </style>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body
     class="bg-gray-900 text-gray-100 h-screen flex flex-col overflow-hidden"
@@ -89,12 +107,40 @@
           </p>
         </div>
       </div>
-      <button
-        onclick="openSettings()"
-        class="p-2 rounded-full hover:bg-gray-700 transition"
-      >
-        <i class="fas fa-cog"></i>
-      </button>
+
+      <div class="flex items-center gap-2">
+        <button
+          onclick="location.reload()"
+          class="p-2 rounded-full hover:bg-gray-700 transition"
+          title="Refresh App"
+        >
+          <i class="fas fa-rotate-right"></i>
+        </button>
+        <button
+          id="btn-analytics"
+          onclick="openAnalytics()"
+          class="hidden p-2 rounded-full hover:bg-gray-700 transition"
+          title="Analytics"
+        >
+          <i class="fas fa-chart-bar"></i>
+        </button>
+        <button
+          id="btn-sheet-settings"
+          onclick="openSheetSettings()"
+          class="hidden p-2 rounded-full hover:bg-gray-700 transition"
+          title="Sheet Settings"
+        >
+          <i class="fas fa-sliders-h"></i>
+        </button>
+        <button
+          id="btn-app-settings"
+          onclick="openSettings()"
+          class="p-2 rounded-full hover:bg-gray-700 transition"
+          title="App Settings"
+        >
+          <i class="fas fa-cog"></i>
+        </button>
+      </div>
     </header>
 
     <!-- MAIN CONTENT AREA -->
@@ -247,6 +293,12 @@
             Re-fetch Sheet List
           </button>
           <button
+            onclick="validateSchema()"
+            class="w-full py-2 bg-green-900/50 border border-green-800 text-green-100 rounded text-sm mb-2 hover:bg-green-900"
+          >
+            Validate Schema (Check Headers)
+          </button>
+          <button
             onclick="localStorage.clear(); location.reload()"
             class="text-red-500 text-xs w-full text-center hover:underline"
           >
@@ -256,8 +308,86 @@
       </div>
     </div>
 
+    <!-- SHEET SETTINGS MODAL -->
+    <div
+      id="sheet-settings-modal"
+      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center modal modal-hidden backdrop-blur-sm"
+    >
+      <div
+        class="bg-gray-800 w-11/12 max-w-md max-h-[80vh] rounded-2xl shadow-2xl border border-gray-700 flex flex-col"
+      >
+        <div
+          class="p-4 border-b border-gray-700 flex justify-between items-center shrink-0"
+        >
+          <h3 class="text-lg font-bold text-white">Sheet Settings</h3>
+          <button
+            onclick="closeSheetSettings()"
+            class="text-gray-400 hover:text-white"
+          >
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
+
+        <div
+          class="p-4 overflow-y-auto flex-1 no-scrollbar"
+          id="sheet-settings-content"
+        >
+          <!-- Fields injected here -->
+        </div>
+
+        <div class="p-4 border-t border-gray-700 shrink-0">
+          <button
+            onclick="saveSheetSettings()"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold"
+          >
+            Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS MODAL -->
+    <div
+      id="analytics-modal"
+      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center modal modal-hidden backdrop-blur-sm"
+    >
+      <div
+        class="bg-gray-800 w-11/12 max-w-md max-h-[85vh] rounded-2xl shadow-2xl border border-gray-700 flex flex-col"
+      >
+        <div
+          class="p-4 border-b border-gray-700 flex justify-between items-center shrink-0"
+        >
+          <h3 class="text-lg font-bold text-white">📊 Analytics</h3>
+          <button
+            onclick="closeAnalytics()"
+            class="text-gray-400 hover:text-white"
+          >
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
+
+        <div
+          class="p-4 overflow-y-auto flex-1 no-scrollbar"
+          id="analytics-content"
+        >
+          <!-- Analytics injected here -->
+        </div>
+      </div>
+    </div>
+
     <!-- JAVASCRIPT LOGIC -->
     <script>
+      // --- STATE ---
+      // Helper for safe JSON parsing
+      function safeParse(str, fallback) {
+        try {
+          return str ? JSON.parse(str) : fallback;
+        } catch (e) {
+          console.warn("JSON Parse Error", e);
+          return fallback;
+        }
+      }
+
       // --- STATE ---
       let APP_ = {
         sheets: [], // List of available sheets {name, headers[]}
@@ -266,16 +396,23 @@
 
         apiUrl: localStorage.getItem("sheetSync_url") || "",
         editingId: null, // Track currently editing item ID
-        settings: JSON.parse(localStorage.getItem("sheetSync_settings")) || {
+        settings: safeParse(localStorage.getItem("sheetSync_settings"), {
           currency: "₹",
-        },
+        }),
+        // Per-sheet field settings: { sheetName: { fieldName: { inputType, options } } }
+        fieldSettings: safeParse(
+          localStorage.getItem("sheetSync_fieldSettings"),
+          {}
+        ),
       };
 
       // --- INIT ---
-      window.addEventListener("load", () => {
+      window.addEventListener("load", async () => {
         if (!APP_.apiUrl) {
           openSettings();
         } else {
+          // Load settings from cloud first
+          await loadCloudSettings();
           loadMeta();
         }
 
@@ -286,12 +423,55 @@
         }, 60000);
       });
 
+      // Load settings from Google Sheets
+      async function loadCloudSettings() {
+        try {
+          updateStatus("Loading settings...", "yellow-400");
+          const res = await fetch(`${APP_.apiUrl}?action=get_settings`);
+          const json = await res.json();
+
+          if (json.status === "success" && json.data) {
+            // Merge cloud settings with local
+            if (json.data.fieldSettings) {
+              APP_.fieldSettings = json.data.fieldSettings;
+              localStorage.setItem(
+                "sheetSync_fieldSettings",
+                JSON.stringify(APP_.fieldSettings)
+              );
+            }
+          }
+        } catch (e) {
+          console.log("Could not load cloud settings, using local:", e);
+        }
+      }
+
+      // Save settings to Google Sheets
+      async function saveCloudSettings() {
+        try {
+          await fetch(APP_.apiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({
+              action: "save_settings",
+              data: {
+                fieldSettings: APP_.fieldSettings,
+              },
+            }),
+          });
+        } catch (e) {
+          console.log("Could not save cloud settings:", e);
+        }
+      }
+
       // --- ROUTING / VIEWS ---
 
       /* 1. DASHBOARD VIEW */
       function renderDashboard() {
         APP_.currentSheet = null;
         document.getElementById("btn-back").classList.add("hidden");
+        document.getElementById("btn-sheet-settings").classList.add("hidden");
+        document.getElementById("btn-analytics").classList.add("hidden");
+        document.getElementById("btn-app-settings").classList.remove("hidden");
         document.getElementById("app-title").innerText = "SheetSync OS";
 
         const container = document.getElementById("main-container");
@@ -352,6 +532,11 @@
 
         // UI Updates
         document.getElementById("btn-back").classList.remove("hidden");
+        document
+          .getElementById("btn-sheet-settings")
+          .classList.remove("hidden");
+        document.getElementById("btn-analytics").classList.remove("hidden");
+        document.getElementById("btn-app-settings").classList.add("hidden");
         document.getElementById("app-title").innerText = sheet.name;
         document.getElementById("fab").classList.remove("hidden");
 
@@ -359,7 +544,7 @@
         container.innerHTML = `
             <div id="tracker-stats" class="mb-4"></div>
             <div id="tracker-list" class="space-y-3 pb-24">
-                <div class="text-center py-10 text-gray-500"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+                ${renderSkeleton(6)}
             </div>
         `;
 
@@ -367,9 +552,37 @@
         await loadData(sheetName);
       }
 
+      function renderSkeleton(count) {
+        let html = "";
+        for (let i = 0; i < count; i++) {
+          html += `
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-sm flex items-center justify-between">
+               <div class="space-y-2 w-full mr-4">
+                  <div class="h-4 bg-gray-700 rounded w-1/3 skeleton"></div>
+                  <div class="h-3 bg-gray-700 rounded w-1/4 skeleton"></div>
+               </div>
+               <div class="h-8 w-8 bg-gray-700 rounded-lg skeleton shrink-0"></div>
+            </div>`;
+        }
+        return html;
+      }
+
       function renderTrackerData() {
         const container = document.getElementById("tracker-list");
         container.innerHTML = "";
+
+        // Get sheet settings
+        const sheetSettings = APP_.fieldSettings[APP_.currentSheet.name] || {};
+        const sortOrder = sheetSettings._sortOrder || "newest";
+        const textSize = sheetSettings._textSize || "normal";
+
+        // Map text size to Tailwind class
+        const textSizeClass =
+          {
+            normal: "text-lg",
+            large: "text-xl",
+            xlarge: "text-2xl",
+          }[textSize] || "text-lg";
 
         // Special Case: Finance View (if headers match typical finance structure)
         const headers = APP_.currentSheet.headers.map((h) => h.toLowerCase());
@@ -383,8 +596,28 @@
           return;
         }
 
+        // Apply sorting
+        let sortedData = [...APP_.data];
+        const displayHeaders = APP_.currentSheet.headers.filter(
+          (h) => h.toLowerCase() !== "id"
+        );
+        const firstCol = displayHeaders[0];
+
+        if (sortOrder === "oldest") {
+          sortedData.reverse();
+        } else if (sortOrder === "asc" && firstCol) {
+          sortedData.sort((a, b) =>
+            String(a[firstCol] || "").localeCompare(String(b[firstCol] || ""))
+          );
+        } else if (sortOrder === "desc" && firstCol) {
+          sortedData.sort((a, b) =>
+            String(b[firstCol] || "").localeCompare(String(a[firstCol] || ""))
+          );
+        }
+        // "newest" is default (data already reversed from API)
+
         // --- RENDER LOGIC ---
-        APP_.data.forEach((item, index) => {
+        sortedData.forEach((item, index) => {
           let html = "";
 
           if (isFinance) {
@@ -396,18 +629,20 @@
             html = `
                     <div class="bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-sm flex items-center justify-between">
                         <div>
-                             <p class="font-bold text-gray-200">${
-                               item.category || "Unknown"
-                             }</p>
-                             <p class="text-xs text-gray-500">${
-                               item.date || ""
-                             } ${item.note ? "• " + item.note : ""}</p>
+                             <p class="font-bold ${textSizeClass} text-gray-200">${
+              item.category || "Unknown"
+            }</p>
+                             <p class="text-xs text-gray-500">${formatDate(
+                               item.date
+                             )} ${item.note ? "• " + item.note : ""}</p>
                         </div>
                         <div class="flex items-center gap-3">
                             <p class="font-bold ${color}">${sign}${
               APP_.settings.currency
             }${Number(item.amount).toLocaleString()}</p>
-                            <button onclick="handleItemClick(${index})" class="text-gray-400 hover:text-white p-2">
+                            <button onclick="handleItemClick('${
+                              item.id
+                            }')" class="text-gray-400 hover:text-white p-2">
                                 <i class="fas fa-pencil"></i>
                              </button>
                         </div>
@@ -415,30 +650,82 @@
                  `;
           } else {
             // Generic List Card
-            // Find the "primary" field (first non-date field usually) for title, second for subtitle
-            const keys = Object.keys(item);
-            const h = APP_.currentSheet.headers;
-            const titleKey = h[0]; // First column
-            const subKey = h[1]; // Second column
+            // Filter out 'id' column for display, find primary columns
+            const h = APP_.currentSheet.headers.filter(
+              (col) => col.toLowerCase() !== "id"
+            );
+            const titleKey = h[0]; // First non-id column
+
+            // Find a good subtitle key (skip toggle/dropdown fields)
+            let subKey = null;
+            for (let i = 1; i < h.length; i++) {
+              const fieldSetting = sheetSettings[h[i]] || {};
+              if (
+                fieldSetting.inputType !== "toggle" &&
+                fieldSetting.inputType !== "dropdown"
+              ) {
+                subKey = h[i];
+                break;
+              }
+            }
+
             const valKey = h.length > 2 ? h[2] : null;
+
+            // Helper to format value (apply formatDate if it looks like a date)
+            const formatValue = (val) => {
+              if (!val) return "";
+              const str = String(val);
+              // Check if it looks like an ISO date or date string
+              if (str.includes("T") && str.includes("Z")) {
+                return formatDate(val);
+              }
+              return str;
+            };
+
+            // Calculate majority status for toggle fields
+            const toggleFields = Object.entries(sheetSettings).filter(
+              ([k, v]) => v.inputType === "toggle"
+            );
+            let majorityIcon = "";
+            if (toggleFields.length > 0) {
+              let positiveCount = 0;
+              let totalToggle = 0;
+              toggleFields.forEach(([field, setting]) => {
+                const itemValue = String(item[field] || "").trim();
+                // Check if value contains checkmark (✅) - that's "done"
+                if (itemValue.includes("✅")) {
+                  positiveCount++;
+                }
+                totalToggle++;
+              });
+              // Majority means more than half are positive
+              majorityIcon =
+                positiveCount >= Math.ceil(totalToggle / 2) ? "✅" : "❌";
+            }
 
             html = `
                     <div class="bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-sm flex items-center justify-between">
                         <div>
-                             <p class="font-bold text-gray-200">${
-                               item[titleKey] || "-"
-                             }</p>
-                             <p class="text-xs text-gray-500">${
-                               item[subKey] || ""
-                             }</p>
+                             <p class="font-bold ${textSizeClass} text-gray-200">${
+              formatValue(item[titleKey]) || "-"
+            }</p>
+                             ${
+                               subKey
+                                 ? `<p class="text-xs text-gray-500">${formatValue(
+                                     item[subKey]
+                                   )}</p>`
+                                 : ""
+                             }
                         </div>
                         <div class="flex items-center gap-3">
                              ${
-                               valKey
-                                 ? `<p class="font-mono text-sm text-gray-300 bg-gray-700 px-2 py-1 rounded">${item[valKey]}</p>`
+                               majorityIcon
+                                 ? `<span class="text-lg">${majorityIcon}</span>`
                                  : ""
                              }
-                             <button onclick="handleItemClick(${index})" class="text-gray-400 hover:text-white p-2">
+                             <button onclick="handleItemClick('${
+                               item.id
+                             }')" class="text-gray-400 hover:text-white p-2">
                                 <i class="fas fa-pencil"></i>
                              </button>
                         </div>
@@ -484,7 +771,7 @@
 
       // --- DATA OPERATIONS ---
 
-      async function loadMeta() {
+      async function loadMeta(skipRender = false) {
         updateStatus("Syncing Apps...", "yellow-400");
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
@@ -512,7 +799,10 @@
 
             APP_.sheets = json.data;
             localStorage.setItem("sheetSync_meta", JSON.stringify(APP_.sheets));
-            renderDashboard();
+
+            if (!skipRender) {
+              renderDashboard();
+            }
             updateStatus("Ready", "green-400");
           } else {
             throw new Error(json.message || "Unknown API Error");
@@ -532,7 +822,7 @@
           // Load from Cache if possible
           const cached = localStorage.getItem("sheetSync_meta");
           if (cached) {
-            APP_.sheets = JSON.parse(cached);
+            APP_.sheets = safeParse(cached, []);
             renderDashboard();
             updateStatus("Offline Mode", "gray-400");
           }
@@ -612,9 +902,11 @@
         m.classList.add("modal-visible");
       }
 
-      function handleItemClick(index) {
+      function handleItemClick(itemId) {
         if (!APP_.currentSheet) return;
-        const item = APP_.data[index];
+        const item = APP_.data.find((d) => String(d.id) === String(itemId));
+        if (!item) return;
+
         APP_.editingId = item.id;
 
         buildForm(APP_.currentSheet.headers, item);
@@ -638,67 +930,101 @@
           const lower = h.toLowerCase();
           if (lower === "id") return; // Skip ID
 
-          let inputType = "text";
+          const val = existingData ? existingData[h] || "" : "";
           let html = "";
 
-          const val = existingData ? existingData[h] || "" : "";
+          // Check field settings first
+          const sheetSettings =
+            APP_.fieldSettings[APP_.currentSheet.name] || {};
+          const fieldSetting = sheetSettings[h] || {};
+          let inputType = fieldSetting.inputType || "";
+          const options = fieldSetting.options
+            ? fieldSetting.options.split(",").map((o) => o.trim())
+            : [];
 
-          // Infer type
-          if (lower.includes("date")) inputType = "date";
-          else if (
-            lower.includes("amount") ||
-            lower.includes("price") ||
-            lower.includes("cost") ||
-            lower === "reps" ||
-            lower === "sets"
-          )
-            inputType = "number";
+          // Auto-infer type if not set
+          if (!inputType) {
+            if (lower.includes("date")) inputType = "date";
+            else if (
+              lower.includes("amount") ||
+              lower.includes("price") ||
+              lower.includes("cost") ||
+              lower === "reps" ||
+              lower === "sets"
+            )
+              inputType = "number";
+            else inputType = "text";
+          }
 
-          // Special: Category or Type Select
-          if (
-            lower === "type" &&
-            (APP_.currentSheet.name.toLowerCase().includes("financ") ||
-              APP_.currentSheet.name.toLowerCase().includes("money"))
-          ) {
-            const selExp = val === "Expense" ? "selected" : "";
-            const selInc = val === "Income" ? "selected" : "";
+          // Render based on input type
+          if (inputType === "dropdown" && options.length > 0) {
+            const optionsHtml = options
+              .map(
+                (opt) =>
+                  `<option value="${opt}" ${
+                    val === opt ? "selected" : ""
+                  }>${opt}</option>`
+              )
+              .join("");
             html = `
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-400 mb-1 capitalize">${h}</label>
-                        <select name="${h}" class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white outline-none">
-                            <option ${selExp}>Expense</option>
-                            <option ${selInc}>Income</option>
-                        </select>
-                    </div>`;
-            // Standard Input
+              <div>
+                <label class="block text-xs font-semibold text-gray-400 mb-1 capitalize">${h}</label>
+                <select name="${h}" class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white outline-none">
+                  ${optionsHtml}
+                </select>
+              </div>`;
+          } else if (inputType === "toggle" && options.length >= 2) {
+            const isFirst = !val || val === options[0];
+            html = `
+              <div>
+                <label class="block text-xs font-semibold text-gray-400 mb-1 capitalize">${h}</label>
+                <div class="flex gap-2">
+                  <button type="button" data-field="${h}" data-value="${
+              options[0]
+            }" onclick="toggleField(this)" class="toggle-btn flex-1 p-3 rounded-lg font-medium transition ${
+              isFirst ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"
+            }">${options[0]}</button>
+                  <button type="button" data-field="${h}" data-value="${
+              options[1]
+            }" onclick="toggleField(this)" class="toggle-btn flex-1 p-3 rounded-lg font-medium transition ${
+              !isFirst ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300"
+            }">${options[1]}</button>
+                </div>
+                <input type="hidden" name="${h}" value="${val || options[0]}">
+              </div>`;
+          } else if (inputType === "date") {
             let defaultValue = val;
-            if (inputType === "date") {
-              if (!defaultValue) {
-                // Default to Today (Local Time)
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, "0");
-                const day = String(now.getDate()).padStart(2, "0");
+            if (!defaultValue) {
+              const now = new Date();
+              const year = now.getFullYear();
+              const month = String(now.getMonth() + 1).padStart(2, "0");
+              const day = String(now.getDate()).padStart(2, "0");
+              defaultValue = `${year}-${month}-${day}`;
+            } else {
+              const d = new Date(defaultValue);
+              if (!isNaN(d)) {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, "0");
+                const day = String(d.getDate()).padStart(2, "0");
                 defaultValue = `${year}-${month}-${day}`;
-              } else {
-                // Format existing date for input (YYYY-MM-DD)
-                const d = new Date(defaultValue);
-                if (!isNaN(d)) {
-                  const year = d.getFullYear();
-                  const month = String(d.getMonth() + 1).padStart(2, "0");
-                  const day = String(d.getDate()).padStart(2, "0");
-                  defaultValue = `${year}-${month}-${day}`;
-                }
               }
             }
-
             html = `
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-400 mb-1 capitalize">${h}</label>
-                        <input type="${inputType}" name="${h}" value="${defaultValue}" step="any" required class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white outline-none focus:border-blue-500">
-                    </div>
-                 `;
+              <div>
+                <label class="block text-xs font-semibold text-gray-400 mb-1 capitalize">${h}</label>
+                <input type="date" name="${h}" value="${defaultValue}" class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white outline-none focus:border-blue-500">
+              </div>`;
+          } else {
+            // Standard text or number input
+            html = `
+              <div>
+                <label class="block text-xs font-semibold text-gray-400 mb-1 capitalize">${h}</label>
+                <input type="${inputType}" name="${h}" value="${val}" step="any" ${
+              inputType === "text" ? "" : "required"
+            } class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white outline-none focus:border-blue-500">
+              </div>`;
           }
+
           form.insertAdjacentHTML("beforeend", html);
         });
 
@@ -819,6 +1145,36 @@
       }
 
       // --- HELPERS & MODALS ---
+      function toggleField(btn) {
+        const field = btn.dataset.field;
+        const value = btn.dataset.value;
+        const form = document.getElementById("dynamic-form");
+        const hiddenInput = form.querySelector(`input[name="${field}"]`);
+        if (hiddenInput) hiddenInput.value = value;
+
+        // Update button styles
+        const buttons = form.querySelectorAll(`[data-field="${field}"]`);
+        buttons.forEach((b) => {
+          if (b === btn) {
+            b.classList.remove("bg-gray-700", "text-gray-300");
+            b.classList.add("bg-blue-600", "text-white");
+          } else {
+            b.classList.remove("bg-blue-600", "text-white");
+            b.classList.add("bg-gray-700", "text-gray-300");
+          }
+        });
+      }
+
+      function formatDate(dateValue) {
+        if (!dateValue) return "";
+        const d = new Date(dateValue);
+        if (isNaN(d)) return dateValue; // Return as-is if not valid date
+        const day = String(d.getDate()).padStart(2, "0");
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`; // DD/MM/YYYY
+      }
+
       function updateStatus(text, color) {
         document.getElementById(
           "status-indicator"
@@ -841,23 +1197,68 @@
         const url = document.getElementById("inp-api-url").value.trim();
         const currency = document.getElementById("inp-currency").value;
 
-        if (url) {
-          localStorage.setItem("sheetSync_url", url);
+        if (!url) return alert("Please enter a valid API URL");
 
-          APP_.settings.currency = currency;
-          localStorage.setItem(
-            "sheetSync_settings",
-            JSON.stringify(APP_.settings)
-          );
-
-          APP_.apiUrl = url;
-          closeSettings();
-          loadMeta(); // Reload to apply changes
+        if (
+          !confirm(
+            "Are you sure you want to save these settings? This will update your Google Sheet connection."
+          )
+        ) {
+          return;
         }
+
+        localStorage.setItem("sheetSync_url", url);
+
+        APP_.settings.currency = currency;
+        localStorage.setItem(
+          "sheetSync_settings",
+          JSON.stringify(APP_.settings)
+        );
+
+        APP_.apiUrl = url;
+        closeSettings();
+        loadMeta(); // Reload to apply changes
       }
       function refreshSheetList() {
         closeSettings();
         loadMeta();
+      }
+      function validateSchema() {
+        if (!APP_.sheets || APP_.sheets.length === 0) {
+          return alert("No sheets found to validate. Please connect first.");
+        }
+
+        let report = "Schema Validation Report:\n\n";
+        let issues = 0;
+
+        APP_.sheets.forEach((sheet) => {
+          const headers = sheet.headers.map((h) => h.toLowerCase());
+          const name = sheet.name;
+          const missing = [];
+
+          if (!headers.includes("id")) missing.push("'id' (Required)");
+
+          // Check for 'date' in trackers
+          if (!headers.some((h) => h.includes("date"))) {
+            // Not strictly required but highly recommended
+            // missing.push("'date' (Recommended)");
+          }
+
+          if (missing.length > 0) {
+            issues++;
+            report += `❌ [${name}]: Missing ${missing.join(", ")}\n`;
+          } else {
+            report += `✅ [${name}]: OK\n`;
+          }
+        });
+
+        if (issues === 0) {
+          alert("All sheets look good! ✅");
+        } else {
+          alert(
+            report + "\nPlease add these columns to Row 1 of your Google Sheet."
+          );
+        }
       }
       function closeFormModal() {
         document.getElementById("form-modal").classList.remove("modal-visible");
@@ -867,6 +1268,536 @@
         const m = document.getElementById("create-tracker-modal");
         m.classList.remove("modal-hidden");
         m.classList.add("modal-visible");
+      }
+
+      // --- SHEET SETTINGS ---
+      function openSheetSettings() {
+        if (!APP_.currentSheet) return;
+
+        const sheetName = APP_.currentSheet.name;
+        const headers = APP_.currentSheet.headers.filter(
+          (h) => h.toLowerCase() !== "id"
+        );
+        const settings = APP_.fieldSettings[sheetName] || {};
+        const sortOrder = settings._sortOrder || "newest";
+        const textSize = settings._textSize || "normal";
+
+        const container = document.getElementById("sheet-settings-content");
+
+        // Display settings section (sorting and text size)
+        container.innerHTML = `
+          <div class="mb-6 p-4 bg-gray-900 rounded-lg border border-gray-700">
+            <h4 class="text-sm font-bold text-white mb-3">Display Settings</h4>
+            
+            <label class="block text-xs font-semibold text-gray-400 mb-1">Sort Order</label>
+            <select id="sheet-sort-order" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm mb-3">
+              <option value="newest" ${
+                sortOrder === "newest" ? "selected" : ""
+              }>Newest First</option>
+              <option value="oldest" ${
+                sortOrder === "oldest" ? "selected" : ""
+              }>Oldest First</option>
+              <option value="asc" ${
+                sortOrder === "asc" ? "selected" : ""
+              }>A → Z (by first column)</option>
+              <option value="desc" ${
+                sortOrder === "desc" ? "selected" : ""
+              }>Z → A (by first column)</option>
+            </select>
+            
+            <label class="block text-xs font-semibold text-gray-400 mb-1">Text Size</label>
+            <select id="sheet-text-size" class="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm">
+              <option value="normal" ${
+                textSize === "normal" ? "selected" : ""
+              }>Normal</option>
+              <option value="large" ${
+                textSize === "large" ? "selected" : ""
+              }>Large</option>
+              <option value="xlarge" ${
+                textSize === "xlarge" ? "selected" : ""
+              }>Extra Large</option>
+            </select>
+          </div>
+          
+          <div class="mb-4">
+             <h4 class="text-sm font-bold text-white mb-2">Manage Columns</h4>
+             <p class="text-xs text-gray-400 mb-4">Configure inputs or remove columns (Dangerous).</p>
+          </div>
+        `;
+
+        headers.forEach((field) => {
+          const fieldSetting = settings[field] || {
+            inputType: "text",
+            options: "",
+          };
+          const inputType = fieldSetting.inputType;
+          const options = fieldSetting.options || "";
+
+          const html = `
+            <div class="mb-4 p-3 bg-gray-900 rounded-lg border border-gray-700 group">
+              <div class="flex justify-between items-center mb-2">
+                 <label class="block text-sm font-semibold text-white">${field}</label>
+                 <button onclick="handleDeleteColumn('${field}')" class="text-red-900 hover:text-red-500 transition opacity-50 group-hover:opacity-100 p-1" title="Delete Column">
+                    <i class="fas fa-trash"></i>
+                 </button>
+              </div>
+              
+              <select data-field="${field}" class="field-type-select w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm mb-2">
+                <option value="text" ${
+                  inputType === "text" ? "selected" : ""
+                }>Text Input</option>
+                <option value="number" ${
+                  inputType === "number" ? "selected" : ""
+                }>Number Input</option>
+                <option value="date" ${
+                  inputType === "date" ? "selected" : ""
+                }>Date Picker</option>
+                <option value="dropdown" ${
+                  inputType === "dropdown" ? "selected" : ""
+                }>Dropdown</option>
+                <option value="toggle" ${
+                  inputType === "toggle" ? "selected" : ""
+                }>Toggle (2 options)</option>
+              </select>
+              <input 
+                type="text" 
+                data-field-options="${field}" 
+                value="${options}" 
+                placeholder="Options (comma separated)"
+                class="field-options w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm ${
+                  inputType === "dropdown" || inputType === "toggle"
+                    ? ""
+                    : "hidden"
+                }"
+              />
+            </div>
+          `;
+          container.insertAdjacentHTML("beforeend", html);
+        });
+
+        // Add New Field Section
+        const addHtml = `
+            <div class="mt-6 pt-4 border-t border-gray-700">
+               <label class="block text-xs font-semibold text-gray-400 mb-2">Add New Column</label>
+               <div class="flex gap-2">
+                  <input type="text" id="new-col-name" placeholder="Column Name" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm">
+                  <button onclick="handleAddColumn()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-lg text-sm font-bold">
+                     <i class="fas fa-plus"></i>
+                  </button>
+               </div>
+            </div>
+        `;
+        container.insertAdjacentHTML("beforeend", addHtml);
+
+        // Add event listeners to toggle options visibility
+        container.querySelectorAll(".field-type-select").forEach((select) => {
+          select.addEventListener("change", (e) => {
+            const field = e.target.dataset.field;
+            const optionsInput = container.querySelector(
+              `[data-field-options="${field}"]`
+            );
+            if (e.target.value === "dropdown" || e.target.value === "toggle") {
+              optionsInput.classList.remove("hidden");
+            } else {
+              optionsInput.classList.add("hidden");
+            }
+          });
+        });
+
+        const m = document.getElementById("sheet-settings-modal");
+        m.classList.remove("modal-hidden");
+        m.classList.add("modal-visible");
+      }
+
+      async function handleAddColumn() {
+        const nameInput = document.getElementById("new-col-name");
+        const name = nameInput.value.trim();
+        if (!name) return alert("Enter a column name");
+
+        const btn =
+          event.currentTarget ||
+          document.querySelector("button[onclick='handleAddColumn()']");
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        updateStatus("Adding Column...", "blue-400");
+        try {
+          const res = await fetch(APP_.apiUrl, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "add_column",
+              sheet: APP_.currentSheet.name,
+              name: name,
+            }),
+          });
+          const json = await res.json();
+          if (json.status === "success") {
+            updateStatus("Added", "green-400");
+            // Refresh meta but skip dashboard render
+            await loadMeta(true);
+            // Update reference to current sheet
+            APP_.currentSheet = APP_.sheets.find(
+              (s) => s.name === APP_.currentSheet.name
+            );
+            openSheetSettings(); // Re-render settings
+          } else {
+            alert("Error: " + json.message);
+            updateStatus("Error", "red-400");
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+          }
+        } catch (e) {
+          alert(e.message);
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
+      }
+
+      async function handleDeleteColumn(name) {
+        if (
+          !confirm(
+            `Are you sure you want to delete column '${name}'?\n\nTHIS CANNOT BE UNDONE. All data in this column will be lost forever.`
+          )
+        )
+          return;
+
+        const btn = event.currentTarget; // The trash button
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        updateStatus("Deleting Column...", "red-400");
+        try {
+          const res = await fetch(APP_.apiUrl, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "delete_column",
+              sheet: APP_.currentSheet.name,
+              name: name,
+            }),
+          });
+          const json = await res.json();
+          if (json.status === "success") {
+            updateStatus("Deleted", "green-400");
+            await loadMeta(true);
+            APP_.currentSheet = APP_.sheets.find(
+              (s) => s.name === APP_.currentSheet.name
+            );
+            openSheetSettings();
+          } else {
+            alert("Error: " + json.message);
+            updateStatus("Error", "red-400");
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+          }
+        } catch (e) {
+          alert(e.message);
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+        }
+      }
+
+      function closeSheetSettings() {
+        const m = document.getElementById("sheet-settings-modal");
+        m.classList.remove("modal-visible");
+        m.classList.add("modal-hidden");
+      }
+
+      function saveSheetSettings() {
+        if (!APP_.currentSheet) return;
+
+        const sheetName = APP_.currentSheet.name;
+        const container = document.getElementById("sheet-settings-content");
+        const settings = {};
+
+        // Save display settings
+        settings._sortOrder = document.getElementById("sheet-sort-order").value;
+        settings._textSize = document.getElementById("sheet-text-size").value;
+
+        // Save field settings
+        container.querySelectorAll(".field-type-select").forEach((select) => {
+          const field = select.dataset.field;
+          const inputType = select.value;
+          const optionsInput = container.querySelector(
+            `[data-field-options="${field}"]`
+          );
+          const options = optionsInput ? optionsInput.value : "";
+
+          settings[field] = { inputType, options };
+        });
+
+        APP_.fieldSettings[sheetName] = settings;
+        localStorage.setItem(
+          "sheetSync_fieldSettings",
+          JSON.stringify(APP_.fieldSettings)
+        );
+
+        closeSheetSettings();
+        renderTrackerData(); // Refresh to apply new settings
+        updateStatus("Saving to cloud...", "yellow-400");
+
+        // Sync to Google Sheets
+        saveCloudSettings().then(() => {
+          updateStatus("Settings Saved", "green-400");
+        });
+      }
+
+      // --- ANALYTICS ---
+      let chartInstances = [];
+
+      function openAnalytics() {
+        if (!APP_.currentSheet || APP_.data.length === 0) {
+          alert("No data to analyze");
+          return;
+        }
+
+        const container = document.getElementById("analytics-content");
+        const headers = APP_.currentSheet.headers.map((h) => h.toLowerCase());
+        const isFinance =
+          headers.includes("amount") &&
+          (headers.includes("type") || headers.includes("category"));
+        const sheetSettings = APP_.fieldSettings[APP_.currentSheet.name] || {};
+
+        // Destroy old charts
+        chartInstances.forEach((c) => c.destroy());
+        chartInstances = [];
+
+        // Basic stats
+        const totalEntries = APP_.data.length;
+
+        // Find date column
+        const dateCol = APP_.currentSheet.headers.find((h) =>
+          h.toLowerCase().includes("date")
+        );
+        let dateRange = "";
+        if (dateCol) {
+          const dates = APP_.data
+            .map((d) => new Date(d[dateCol]))
+            .filter((d) => !isNaN(d))
+            .sort((a, b) => a - b);
+          if (dates.length > 0) {
+            dateRange = `${formatDate(dates[0])} - ${formatDate(
+              dates[dates.length - 1]
+            )}`;
+          }
+        }
+
+        let html = `
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+               <div class="bg-gray-900 p-4 rounded-xl border border-gray-700">
+                 <p class="text-xs text-gray-500 uppercase mb-1">Total Entries</p>
+                 <p class="text-2xl font-bold text-white">${totalEntries}</p>
+               </div>
+               ${
+                 dateRange
+                   ? `
+               <div class="bg-gray-900 p-4 rounded-xl border border-gray-700">
+                 <p class="text-xs text-gray-500 uppercase mb-1">Range</p>
+                 <p class="text-xs font-semibold text-gray-300">${dateRange}</p>
+               </div>`
+                   : ""
+               }
+            </div>
+        `;
+
+        // INJECTION POINTS FOR CHARTS
+        if (isFinance) {
+          html += `
+             <div class="bg-gray-900 p-4 rounded-xl border border-gray-700">
+                <canvas id="chart-finance-bar"></canvas>
+             </div>
+             <div class="bg-gray-900 p-4 rounded-xl border border-gray-700">
+                <canvas id="chart-category-pie"></canvas>
+             </div>
+          `;
+        } else {
+          html += `
+             <div class="bg-gray-900 p-4 rounded-xl border border-gray-700">
+                <canvas id="chart-generic-bar"></canvas>
+             </div>
+          `;
+        }
+
+        html += `</div>`;
+        container.innerHTML = html;
+
+        const m = document.getElementById("analytics-modal");
+        m.classList.remove("modal-hidden");
+        m.classList.add("modal-visible");
+
+        // RENDER CHARTS
+        setTimeout(() => {
+          if (isFinance) {
+            renderFinanceCharts();
+          } else {
+            renderGenericCharts(sheetSettings, totalEntries);
+          }
+        }, 100);
+      }
+
+      function renderFinanceCharts() {
+        const income = APP_.data
+          .filter((i) => (i.type || "").toLowerCase() === "income")
+          .reduce((s, i) => s + Number(i.amount || 0), 0);
+        const expense = APP_.data
+          .filter((i) => (i.type || "").toLowerCase() === "expense")
+          .reduce((s, i) => s + Number(i.amount || 0), 0);
+
+        // 1. Bar Chart (Income vs Expense)
+        const ctxBar = document
+          .getElementById("chart-finance-bar")
+          .getContext("2d");
+        chartInstances.push(
+          new Chart(ctxBar, {
+            type: "bar",
+            data: {
+              labels: ["Income", "Expense"],
+              datasets: [
+                {
+                  label: "Amount",
+                  data: [income, expense],
+                  backgroundColor: ["#4ade80", "#f87171"],
+                  borderRadius: 8,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: { display: false },
+                title: { display: true, text: "Cash Flow", color: "#9ca3af" },
+              },
+              scales: {
+                y: { grid: { color: "#374151" }, ticks: { color: "#9ca3af" } },
+                x: { grid: { display: false }, ticks: { color: "#9ca3af" } },
+              },
+            },
+          })
+        );
+
+        // 2. Pie Chart (Categories)
+        const categories = {};
+        APP_.data.forEach((item) => {
+          if ((item.type || "").toLowerCase() === "expense") {
+            const cat = item.category || "Other";
+            categories[cat] = (categories[cat] || 0) + Number(item.amount || 0);
+          }
+        });
+
+        const ctxPie = document
+          .getElementById("chart-category-pie")
+          .getContext("2d");
+        chartInstances.push(
+          new Chart(ctxPie, {
+            type: "doughnut",
+            data: {
+              labels: Object.keys(categories),
+              datasets: [
+                {
+                  data: Object.values(categories),
+                  backgroundColor: [
+                    "#60a5fa",
+                    "#a78bfa",
+                    "#f472b6",
+                    "#fbbf24",
+                    "#34d399",
+                    "#f87171",
+                  ],
+                  borderWidth: 0,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: {
+                  position: "right",
+                  labels: { color: "#d1d5db", boxWidth: 12 },
+                },
+                title: {
+                  display: true,
+                  text: "Expenses by Category",
+                  color: "#9ca3af",
+                },
+              },
+            },
+          })
+        );
+      }
+
+      function renderGenericCharts(sheetSettings, totalEntries) {
+        const toggleFields = Object.entries(sheetSettings).filter(
+          ([k, v]) => v.inputType === "toggle"
+        );
+
+        const labels = [];
+        const dataPoints = [];
+
+        if (toggleFields.length > 0) {
+          toggleFields.forEach(([field, setting]) => {
+            const completed = APP_.data.filter((d) =>
+              String(d[field] || "").includes("✅")
+            ).length;
+            const percent = Math.round((completed / totalEntries) * 100);
+            labels.push(field);
+            dataPoints.push(percent);
+          });
+        } else {
+          // Fallback: Just show simple count by first dropdown if exists
+          // Or just do nothing if no toggle fields
+          document.getElementById("chart-generic-bar").parentElement.innerHTML =
+            "<p class='text-gray-500 text-center text-sm'>Add 'Toggle' fields in Sheet Settings to visualize habits/completion rates.</p>";
+          return;
+        }
+
+        const ctx = document
+          .getElementById("chart-generic-bar")
+          .getContext("2d");
+        chartInstances.push(
+          new Chart(ctx, {
+            type: "bar",
+            data: {
+              labels: labels,
+              datasets: [
+                {
+                  label: "Completion %",
+                  data: dataPoints,
+                  backgroundColor: "#3b82f6",
+                  borderRadius: 6,
+                },
+              ],
+            },
+            options: {
+              indexAxis: "y",
+              responsive: true,
+              plugins: {
+                legend: { display: false },
+                title: {
+                  display: true,
+                  text: "Completion Rates",
+                  color: "#9ca3af",
+                },
+              },
+              scales: {
+                x: {
+                  min: 0,
+                  max: 100,
+                  grid: { color: "#374151" },
+                  ticks: { color: "#9ca3af" },
+                },
+                y: { grid: { display: false }, ticks: { color: "#9ca3af" } },
+              },
+            },
+          })
+        );
+      }
+
+      function closeAnalytics() {
+        const m = document.getElementById("analytics-modal");
+        m.classList.remove("modal-visible");
+        m.classList.add("modal-hidden");
       }
     </script>
   </body>

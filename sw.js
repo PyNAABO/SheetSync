@@ -1,11 +1,13 @@
-const CACHE_NAME = "sheetsync-v1";
+const CACHE_NAME = "sheetsync-v3";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.json",
+  "./assets/icon.png",
   "https://cdn.tailwindcss.com",
   "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css",
   "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap",
+  "https://cdn.jsdelivr.net/npm/chart.js",
 ];
 
 // Install Event - Cache Assets
