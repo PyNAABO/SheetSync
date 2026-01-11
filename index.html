@@ -1148,9 +1148,6 @@
           const lower = h.toLowerCase();
           if (lower === "id") return; // Skip ID
 
-          const val = existingData ? existingData[h] || "" : "";
-          let html = "";
-
           // Check field settings first
           const sheetSettings =
             APP_.fieldSettings[APP_.currentSheet.name] || {};
@@ -1159,6 +1156,11 @@
           const options = fieldSetting.options
             ? fieldSetting.options.split(",").map((o) => o.trim())
             : [];
+          const storedDefault = fieldSetting.defaultValue || "";
+
+          // For new entries, use stored default; for editing, use existing value
+          const val = existingData ? existingData[h] || "" : storedDefault;
+          let html = "";
 
           // Auto-infer type if not set
           if (!inputType) {
@@ -1185,11 +1187,13 @@
 
           // Render based on input type
           if (inputType === "dropdown" && options.length > 0) {
+            // For dropdown, default to first option if no val
+            const selectedVal = val || options[0];
             const optionsHtml = options
               .map(
                 (opt) =>
                   `<option value="${opt}" ${
-                    val === opt ? "selected" : ""
+                    selectedVal === opt ? "selected" : ""
                   }>${opt}</option>`
               )
               .join("");
@@ -1201,6 +1205,7 @@
                 </select>
               </div>`;
           } else if (inputType === "toggle" && options.length >= 2) {
+            // For toggle, default to first option if no val
             const isFirst = !val || val === options[0];
             html = `
               <div>
@@ -1220,29 +1225,29 @@
                 <input type="hidden" name="${h}" value="${val || options[0]}">
               </div>`;
           } else if (inputType === "date") {
-            let defaultValue = val;
-            if (!defaultValue) {
+            let dateValue = val;
+            if (!dateValue) {
               const now = new Date();
               const year = now.getFullYear();
               const month = String(now.getMonth() + 1).padStart(2, "0");
               const day = String(now.getDate()).padStart(2, "0");
-              defaultValue = `${year}-${month}-${day}`;
+              dateValue = `${year}-${month}-${day}`;
             } else {
-              const d = new Date(defaultValue);
+              const d = new Date(dateValue);
               if (!isNaN(d)) {
                 const year = d.getFullYear();
                 const month = String(d.getMonth() + 1).padStart(2, "0");
                 const day = String(d.getDate()).padStart(2, "0");
-                defaultValue = `${year}-${month}-${day}`;
+                dateValue = `${year}-${month}-${day}`;
               }
             }
             html = `
               <div>
                 <label class="block text-xs font-semibold text-gray-400 mb-1 capitalize">${h}</label>
-                <input type="date" name="${h}" value="${defaultValue}" class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white outline-none focus:border-blue-500">
+                <input type="date" name="${h}" value="${dateValue}" class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white outline-none focus:border-blue-500">
               </div>`;
           } else {
-            // Standard text or number input
+            // Standard text or number input - uses storedDefault via val
             html = `
               <div>
                 <label class="block text-xs font-semibold text-gray-400 mb-1 capitalize">${h}</label>
@@ -1595,9 +1600,17 @@
           const fieldSetting = settings[field] || {
             inputType: "text",
             options: "",
+            defaultValue: "",
           };
           const inputType = fieldSetting.inputType;
           const options = fieldSetting.options || "";
+          const defaultValue = fieldSetting.defaultValue || "";
+
+          // Default value input is shown for text, number, date - hidden for toggle/dropdown
+          const showDefault =
+            inputType === "text" ||
+            inputType === "number" ||
+            inputType === "date";
 
           const html = `
             <div class="mb-4 p-3 bg-gray-900 rounded-lg border border-gray-700 group">
@@ -1630,10 +1643,19 @@
                 data-field-options="${field}" 
                 value="${options}" 
                 placeholder="Options (comma separated)"
-                class="field-options w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm ${
+                class="field-options w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm mb-2 ${
                   inputType === "dropdown" || inputType === "toggle"
                     ? ""
                     : "hidden"
+                }"
+              />
+              <input 
+                type="text" 
+                data-field-default="${field}" 
+                value="${defaultValue}" 
+                placeholder="Default value (for new entries)"
+                class="field-default w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm ${
+                  showDefault ? "" : "hidden"
                 }"
               />
             </div>
@@ -1804,7 +1826,12 @@
           );
           const options = optionsInput ? optionsInput.value : "";
 
-          settings[field] = { inputType, options };
+          const defaultInput = container.querySelector(
+            `[data-field-default="${field}"]`
+          );
+          const defaultValue = defaultInput ? defaultInput.value : "";
+
+          settings[field] = { inputType, options, defaultValue };
         });
 
         APP_.fieldSettings[sheetName] = settings;
