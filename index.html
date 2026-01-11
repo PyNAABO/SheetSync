@@ -12,6 +12,7 @@
     <link rel="manifest" href="manifest.json" />
 
     <!-- iOS Support -->
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta
       name="apple-mobile-web-app-status-bar-style"
@@ -69,14 +70,92 @@
           #1f2937 75%
         );
         background-size: 200% 100%;
-        animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite,
+          shimmer 2s infinite linear;
       }
-      @keyframes pulse {
+      @keyframes shimmer {
         0% {
-          background-position: 200% 0;
+          background-position: -200% 0;
         }
         100% {
-          background-position: -200% 0;
+          background-position: 200% 0;
+        }
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      /* Toasts */
+      #toast-container {
+        pointer-events: none;
+      }
+      .toast {
+        pointer-events: auto;
+        animation: slideInRight 0.3s ease forwards,
+          fadeOut 0.3s ease forwards 2.7s;
+      }
+      @keyframes slideInRight {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      @keyframes fadeOut {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0;
+        }
+      }
+
+      /* Shake Animation */
+      .shake {
+        animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+      }
+      @keyframes shake {
+        10%,
+        90% {
+          transform: translate3d(-1px, 0, 0);
+        }
+        20%,
+        80% {
+          transform: translate3d(2px, 0, 0);
+        }
+        30%,
+        50%,
+        70% {
+          transform: translate3d(-4px, 0, 0);
+        }
+        40%,
+        60% {
+          transform: translate3d(4px, 0, 0);
+        }
+      }
+
+      /* Pulsing Status */
+      .status-pulse {
+        animation: statusPulse 2s infinite;
+      }
+      @keyframes statusPulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(74, 222, 128, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
         }
       }
     </style>
@@ -88,7 +167,7 @@
   >
     <!-- HEADER -->
     <header
-      class="bg-gray-800 border-b border-gray-700 p-4 z-10 flex justify-between items-center shrink-0"
+      class="bg-gray-800/80 backdrop-blur-md border-b border-gray-700/50 p-4 sticky top-0 z-40 flex justify-between items-center shrink-0"
     >
       <div class="flex items-center gap-3">
         <button
@@ -416,8 +495,83 @@
       </div>
     </div>
 
+    <!-- TOAST CONTAINER -->
+    <div
+      id="toast-container"
+      class="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-72 max-w-[90vw]"
+    ></div>
+
     <!-- JAVASCRIPT LOGIC -->
     <script>
+      // --- UI HELPERS ---
+      function showToast(message, type = "info") {
+        const container = document.getElementById("toast-container");
+        const toast = document.createElement("div");
+
+        let bgColor = "bg-gray-800";
+        let icon = "fa-info-circle";
+        let textColor = "text-blue-400";
+
+        if (type === "success") {
+          icon = "fa-check-circle";
+          textColor = "text-green-400";
+        } else if (type === "error") {
+          icon = "fa-times-circle";
+          textColor = "text-red-400";
+        } else if (type === "warning") {
+          icon = "fa-exclamation-triangle";
+          textColor = "text-yellow-400";
+        }
+
+        toast.className = `toast ${bgColor} border border-gray-700 p-4 rounded-xl shadow-2xl flex items-center gap-3 z-50 pointer-events-auto`;
+        toast.innerHTML = `
+                <i class="fas ${icon} ${textColor} text-xl"></i>
+                <div class="flex-1">
+                    <p class="text-white text-sm font-medium">${message}</p>
+                </div>
+                <button onclick="this.parentElement.remove()" class="text-gray-500 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+        container.appendChild(toast);
+
+        // Auto remove
+        setTimeout(() => {
+          if (toast.parentElement) toast.remove();
+        }, 3000);
+      }
+
+      function shakeForm(modalId) {
+        const modal = document.querySelector(`#${modalId} > div`);
+        if (modal) {
+          modal.classList.add("shake");
+          setTimeout(() => modal.classList.remove("shake"), 500);
+        }
+      }
+
+      function openModal(modalId) {
+        const m = document.getElementById(modalId);
+        if (!m) return;
+        m.classList.remove("modal-hidden");
+        m.classList.add("modal-visible");
+
+        // Autofocus first input
+        setTimeout(() => {
+          const firstInput = m.querySelector(
+            "input:not([type='hidden']), select, textarea"
+          );
+          if (firstInput) firstInput.focus();
+        }, 300);
+      }
+
+      function closeModal(modalId) {
+        const m = document.getElementById(modalId);
+        if (!m) return;
+        m.classList.remove("modal-visible");
+        m.classList.add("modal-hidden");
+      }
+
       // --- MODAL HELPERS ---
       let _confirmResolve = null;
 
@@ -716,13 +870,20 @@
               iconClass = "fa-book";
               colorClass =
                 "bg-gradient-to-br from-purple-900 to-purple-800 border-purple-700 text-purple-100";
+            } else {
+              // Default for everything else
+              cardStyle =
+                "background-color: #2D2D30; border-color: #2D2D30; color: white;";
+              colorClass = "";
             }
           }
 
           const card = `
-             <div onclick="openTracker('${sheet.name}')" style="${cardStyle}" class="${colorClass} p-4 rounded-2xl flex flex-col items-center justify-center gap-3 aspect-square active:scale-95 transition cursor-pointer shadow-lg hover:shadow-xl hover:border-gray-500 group">
-                <i class="fas ${iconClass} text-3xl text-gray-200 group-hover:text-white transition"></i>
-                <span class="font-semibold text-sm text-center text-gray-300 group-hover:text-white">${sheet.name}</span>
+             <div onclick="openTracker('${sheet.name}')" style="${cardStyle}" class="${colorClass} p-4 rounded-3xl flex flex-col items-center justify-center gap-3 aspect-square active:scale-95 transition-all duration-300 cursor-pointer shadow-lg shadow-black/20 hover:shadow-2xl hover:-translate-y-1 hover:border-gray-500/50 group">
+                <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <i class="fas ${iconClass} text-2xl text-gray-100 group-hover:text-white transition"></i>
+                </div>
+                <span class="font-bold text-xs tracking-wide text-center text-gray-300 group-hover:text-white uppercase">${sheet.name}</span>
              </div>
            `;
           grid.insertAdjacentHTML("beforeend", card);
@@ -730,9 +891,11 @@
 
         // "Add New" Card
         const addCard = `
-           <div onclick="openCreateTrackerModal()" class="bg-gray-800 border-2 border-dashed border-gray-700 p-4 rounded-2xl flex flex-col items-center justify-center gap-3 aspect-square active:scale-95 transition cursor-pointer hover:border-gray-500 hover:bg-gray-750">
-                <i class="fas fa-plus text-2xl text-gray-500"></i>
-                <span class="font-semibold text-sm text-center text-gray-500">New Tracker</span>
+           <div onclick="openCreateTrackerModal()" class="bg-gray-800/50 border-2 border-dashed border-gray-700 p-4 rounded-3xl flex flex-col items-center justify-center gap-3 aspect-square active:scale-95 transition-all duration-300 cursor-pointer hover:border-blue-500/50 hover:bg-gray-800 group">
+                <div class="w-12 h-12 rounded-2xl bg-gray-900/50 flex items-center justify-center group-hover:rotate-90 transition-transform duration-500">
+                    <i class="fas fa-plus text-xl text-gray-500 group-hover:text-blue-400"></i>
+                </div>
+                <span class="font-bold text-xs tracking-wide text-center text-gray-500 group-hover:text-blue-400 uppercase">New Tracker</span>
            </div>
         `;
         grid.insertAdjacentHTML("beforeend", addCard);
@@ -809,8 +972,12 @@
           (headers.includes("type") || headers.includes("category"));
 
         if (APP_.data.length === 0) {
-          container.innerHTML =
-            '<div class="text-center py-10 text-gray-500">No entries yet.</div>';
+          container.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-20 text-gray-500 opacity-60">
+                <i class="fas fa-folder-open text-5xl mb-4"></i>
+                <p class="text-lg font-medium">No entries yet.</p>
+                <p class="text-sm">Click the + button to add your first record.</p>
+            </div>`;
           return;
         }
 
@@ -854,10 +1021,13 @@
                                item.date
                              )} ${item.note ? "• " + item.note : ""}</p>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <p class="font-bold ${color}">${sign}${
+                        <div class="flex items-center gap-2 shrink-0 ml-2">
+                            <p class="font-bold ${color} whitespace-nowrap text-right">${sign}${
               APP_.settings.currency
-            }${Number(item.amount).toLocaleString()}</p>
+            }${Number(item.amount).toLocaleString(undefined, {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 2,
+            })}</p>
                             <button onclick="handleItemClick('${
                               item.id
                             }')" class="text-gray-400 hover:text-white p-2">
@@ -957,25 +1127,33 @@
         if (isFinance) {
           const income = APP_.data
             .filter((i) => (i.type || "").toLowerCase() === "income")
-            .reduce((s, i) => s + Number(i.amount), 0);
+            .reduce((s, i) => s + Number(i.amount || 0), 0);
           const expense = APP_.data
             .filter((i) => (i.type || "").toLowerCase() === "expense")
-            .reduce((s, i) => s + Number(i.amount), 0);
+            .reduce((s, i) => s + Number(i.amount || 0), 0);
+
+          const net = (income - expense).toFixed(2);
+          const incomeStr = income.toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+          });
+          const expenseStr = expense.toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+          });
+          const netStr = Number(net).toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+          });
 
           document.getElementById("tracker-stats").innerHTML = `
                <div class="grid grid-cols-2 gap-3 mb-2">
-                   <div class="bg-gray-800 p-3 rounded-xl border border-gray-700"><p class="text-xs text-gray-500 uppercase">Input</p><p class="text-lg font-bold text-green-400">${
-                     APP_.settings.currency
-                   }${income}</p></div>
-                   <div class="bg-gray-800 p-3 rounded-xl border border-gray-700"><p class="text-xs text-gray-500 uppercase">Output</p><p class="text-lg font-bold text-red-400">${
-                     APP_.settings.currency
-                   }${expense}</p></div>
+                   <div class="bg-gray-800 p-3 rounded-xl border border-gray-700"><p class="text-xs text-gray-500 uppercase">Input</p><p class="text-lg font-bold text-green-400">${APP_.settings.currency}${incomeStr}</p></div>
+                   <div class="bg-gray-800 p-3 rounded-xl border border-gray-700"><p class="text-xs text-gray-500 uppercase">Output</p><p class="text-lg font-bold text-red-400">${APP_.settings.currency}${expenseStr}</p></div>
                </div>
                <div class="bg-gradient-to-r from-blue-900 to-gray-900 p-3 rounded-xl border border-blue-800 flex justify-between items-center">
                    <span class="text-blue-100 font-medium">Net Balance</span>
-                   <span class="text-xl font-bold text-white">${
-                     APP_.settings.currency
-                   }${income - expense}</span>
+                   <span class="text-xl font-bold text-white">${APP_.settings.currency}${netStr}</span>
                </div>
             `;
         } else {
@@ -1033,9 +1211,7 @@
           if (e.name === "AbortError") msg = "Connection Timed Out";
 
           // Show visible alert for troubleshooting
-          alert(
-            `Connection Failed: ${msg}\n\nTip: Check Google Sheet permissions or 'Manage Deployments' > 'New Version'`
-          );
+          showToast(`Connection Failed: ${msg}`, "error");
 
           // Load from Cache if possible
           const cached = localStorage.getItem("sheetSync_meta");
@@ -1071,7 +1247,10 @@
           .getElementById("new-tracker-fields")
           .value.trim();
 
-        if (!name || !fieldsStr) return alert("Fill all fields");
+        if (!name || !fieldsStr) {
+          shakeForm("create-tracker-modal");
+          return showToast("Fill all fields", "warning");
+        }
 
         const headers = fieldsStr.split(",").map((s) => s.trim());
         // Always ensure 'id' represents a unique row if needed, but here user defines.
@@ -1100,10 +1279,13 @@
           // Wait a bit for propagation then reload
           setTimeout(() => {
             loadMeta();
-            alert("Tracker created! It may take a few seconds to appear.");
+            showToast(
+              "Tracker created! It may take a few seconds to appear.",
+              "success"
+            );
           }, 2000);
         } catch (e) {
-          alert("Error creating tracker: " + e.message);
+          showToast("Error creating tracker: " + e.message, "error");
         }
       }
 
@@ -1288,7 +1470,7 @@
         // Optimistic UI
         APP_.data = APP_.data.filter((d) => d.id !== id);
         renderTrackerData();
-        closeFormModal();
+        closeModal("form-modal");
         updateStatus("Deleting...", "red-400");
 
         try {
@@ -1415,7 +1597,9 @@
       function updateStatus(text, color) {
         document.getElementById(
           "status-indicator"
-        ).innerHTML = `<i class="fas fa-circle text-[8px] mr-1 text-${color}"></i> ${text}`;
+        ).innerHTML = `<i class="fas fa-circle text-[8px] mr-1 text-${color} ${
+          color === "green-400" ? "" : "status-pulse"
+        }"></i> ${text}`;
       }
       function openSettings() {
         document.getElementById("inp-api-url").value = APP_.apiUrl;
@@ -1423,12 +1607,15 @@
         const m = document.getElementById("settings-modal");
         m.classList.remove("modal-hidden");
         m.classList.add("modal-visible");
+
+        // Autofocus
+        setTimeout(() => {
+          const inp = document.getElementById("inp-api-url");
+          if (inp) inp.focus();
+        }, 300);
       }
       function closeSettings() {
-        document
-          .getElementById("settings-modal")
-          .classList.remove("modal-visible");
-        document.getElementById("settings-modal").classList.add("modal-hidden");
+        closeModal("settings-modal");
       }
       async function saveSettings() {
         const url = document.getElementById("inp-api-url").value.trim();
@@ -1462,19 +1649,16 @@
         loadMeta(); // Reload to apply changes
       }
       function refreshSheetList() {
-        closeSettings();
+        closeModal("settings-modal");
         loadMeta();
       }
       function validateSchema() {
         if (!APP_.sheets || APP_.sheets.length === 0) {
-          return showAlert(
-            "No Sheets",
-            "No sheets found to validate. Please connect first.",
-            "error"
-          );
+          return showToast("No sheets found to validate.", "error");
         }
 
-        let report = "Schema Validation Report:\n\n";
+        let reportHtml =
+          '<div class="text-left space-y-2 max-h-60 overflow-y-auto no-scrollbar py-2">';
         let issues = 0;
 
         APP_.sheets.forEach((sheet) => {
@@ -1482,45 +1666,51 @@
           const name = sheet.name;
           const missing = [];
 
-          if (!headers.includes("id")) missing.push("'id' (Required)");
-
-          // Check for 'date' in trackers
-          if (!headers.some((h) => h.includes("date"))) {
-            // Not strictly required but highly recommended
-            // missing.push("'date' (Recommended)");
-          }
+          if (!headers.includes("id")) missing.push("id");
 
           if (missing.length > 0) {
             issues++;
-            report += `❌ [${name}]: Missing ${missing.join(", ")}\n`;
+            reportHtml += `
+              <div class="flex items-center justify-between p-2 bg-red-900/20 border border-red-800/30 rounded-lg">
+                <span class="text-sm font-medium text-red-200">${name}</span>
+                <span class="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full uppercase">Missing: ${missing.join(
+                  ", "
+                )}</span>
+              </div>`;
           } else {
-            report += `✅ [${name}]: OK\n`;
+            reportHtml += `
+              <div class="flex items-center justify-between p-2 bg-green-900/20 border border-green-800/30 rounded-lg">
+                <span class="text-sm font-medium text-green-200">${name}</span>
+                <i class="fas fa-check-circle text-green-500"></i>
+              </div>`;
           }
         });
 
+        reportHtml += "</div>";
+
         if (issues === 0) {
           showAlert(
-            "All Good!",
-            "Your sheet structure is perfect. ✅",
+            "Schema Validated",
+            "All trackers are correctly structured! ✅",
             "success"
           );
         } else {
-          showAlert(
-            "Schema Issues",
-            report +
-              "\nPlease add these columns to Row 1 of your Google Sheet.",
-            "warning"
-          );
+          showAlert("Schema Issues", reportHtml, "warning");
         }
       }
       function closeFormModal() {
-        document.getElementById("form-modal").classList.remove("modal-visible");
-        document.getElementById("form-modal").classList.add("modal-hidden");
+        closeModal("form-modal");
       }
       function openCreateTrackerModal() {
         const m = document.getElementById("create-tracker-modal");
         m.classList.remove("modal-hidden");
         m.classList.add("modal-visible");
+
+        // Autofocus
+        setTimeout(() => {
+          const inp = document.getElementById("new-tracker-name");
+          if (inp) inp.focus();
+        }, 300);
       }
 
       // --- SHEET SETTINGS ---
@@ -1692,9 +1882,7 @@
           });
         });
 
-        const m = document.getElementById("sheet-settings-modal");
-        m.classList.remove("modal-hidden");
-        m.classList.add("modal-visible");
+        openModal("sheet-settings-modal");
       }
 
       async function handleAddColumn() {
@@ -1793,9 +1981,7 @@
       }
 
       function closeSheetSettings() {
-        const m = document.getElementById("sheet-settings-modal");
-        m.classList.remove("modal-visible");
-        m.classList.add("modal-hidden");
+        closeModal("sheet-settings-modal");
       }
 
       function saveSheetSettings() {
@@ -1934,9 +2120,7 @@
         html += `</div>`;
         container.innerHTML = html;
 
-        const m = document.getElementById("analytics-modal");
-        m.classList.remove("modal-hidden");
-        m.classList.add("modal-visible");
+        openModal("analytics-modal");
 
         // RENDER CHARTS
         setTimeout(() => {
@@ -2106,9 +2290,7 @@
       }
 
       function closeAnalytics() {
-        const m = document.getElementById("analytics-modal");
-        m.classList.remove("modal-visible");
-        m.classList.add("modal-hidden");
+        closeModal("analytics-modal");
       }
     </script>
   </body>
